@@ -50,13 +50,31 @@ read -p "Enter your reMarkable's IP address: " REMARKABLE_IP
 echo
 echo -e "${BOLD}Step 2:${RESET} Copying files to your reMarkable tablet..."
 echo -e "${YELLOW}Note:${RESET} You'll need to enter the password when prompted (found in your device's settings)."
+
 scp -r rm-background-manager root@$REMARKABLE_IP:/home/root/
+if [ $? -ne 0 ]; then
+    echo -e "${RED}${BOLD}✗ SSH Key Error Detected:${RESET} ${RED}Attempting to fix...${RESET}"
+    ssh-keygen -R $REMARKABLE_IP
+    echo -e "${YELLOW}Old SSH key removed. Retrying file copy...${RESET}"
+    scp -r rm-background-manager root@$REMARKABLE_IP:/home/root/
+fi
 
 # Check if the copy operation was successful
 if [ $? -eq 0 ]; then
     echo
     echo -e "${GREEN}${BOLD}✓ Success!${RESET} ${GREEN}rm-background-manager has been installed to your reMarkable.${RESET}"
-    echo -e "${GREEN}Connect to your device using SSH to run the application.${RESET}"
+    echo -e "${GREEN}Automatically connecting to your device using SSH...${RESET}"
+    echo -e "${YELLOW}Once connected, you can:${RESET}"
+    echo -e "  ${YELLOW}• Navigate to the folder:${RESET} cd /home/root/rm-background-manager"
+    echo -e "  ${YELLOW}• Run the application:${RESET} bash wallpaper-manager.sh"
+    echo
+    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo -e "${BOLD}${BLUE}             Connecting to reMarkable...${RESET}"
+    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo
+
+    # Connect via SSH
+    ssh root@$REMARKABLE_IP
 else
     echo
     echo -e "${RED}${BOLD}✗ Error:${RESET} ${RED}Failed to copy files to the reMarkable.${RESET}"

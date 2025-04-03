@@ -51,18 +51,92 @@ Write-Host "You'll need to enter the password when prompted (found in your devic
 try {
     # Using pscp.exe (PuTTY SCP) which should be installed separately
     # Alternatively, users can install OpenSSH client feature in Windows 10/11
+    $copySuccessful = $false
+    
     if (Get-Command pscp.exe -ErrorAction SilentlyContinue) {
-        pscp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
+        try {
+            pscp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
+            $copySuccessful = $true
+        } catch {
+            # Check if error message contains SSH key related errors
+            if ($_.Exception.Message -match "key does not match|host key verification failed") {
+                Write-Host "✗ SSH Key Error Detected: " -ForegroundColor Red -NoNewline
+                Write-Host "Attempting to fix..." -ForegroundColor Red
+                
+                # Try to remove the old SSH key
+                if (Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue) {
+                    ssh-keygen.exe -R $REMARKABLE_IP
+                    Write-Host "Old SSH key removed. Retrying file copy..." -ForegroundColor Yellow
+                    
+                    # Retry the copy operation
+                    pscp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
+                    $copySuccessful = $true
+                } else {
+                    throw "SSH key error detected but ssh-keygen.exe not found. Please remove the key manually."
+                }
+            } else {
+                throw  # Re-throw the original exception
+            }
+        }
     } elseif (Get-Command scp.exe -ErrorAction SilentlyContinue) {
-        scp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
+        try {
+            scp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
+            $copySuccessful = $true
+        } catch {
+            # Check if error message contains SSH key related errors
+            if ($_.Exception.Message -match "key does not match|host key verification failed") {
+                Write-Host "✗ SSH Key Error Detected: " -ForegroundColor Red -NoNewline
+                Write-Host "Attempting to fix..." -ForegroundColor Red
+                
+                # Try to remove the old SSH key
+                if (Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue) {
+                    ssh-keygen.exe -R $REMARKABLE_IP
+                    Write-Host "Old SSH key removed. Retrying file copy..." -ForegroundColor Yellow
+                    
+                    # Retry the copy operation
+                    scp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
+                    $copySuccessful = $true
+                } else {
+                    throw "SSH key error detected but ssh-keygen.exe not found. Please remove the key manually."
+                }
+            } else {
+                throw  # Re-throw the original exception
+            }
+        }
     } else {
         throw "Neither pscp.exe nor scp.exe was found. Please install PuTTY or OpenSSH Client."
     }
     
     Write-Host
-    Write-Host "✓ Success! " -ForegroundColor Green -NoNewline
-    Write-Host "rm-background-manager has been installed to your reMarkable." -ForegroundColor Green
-    Write-Host "Connect to your device using SSH to run the application." -ForegroundColor Green
+    if ($copySuccessful) {
+        Write-Host "✓ Success! " -ForegroundColor Green -NoNewline
+        Write-Host "rm-background-manager has been installed to your reMarkable." -ForegroundColor Green
+        Write-Host "Automatically connecting to your device using SSH..." -ForegroundColor Green
+        Write-Host "Once connected, you can:" -ForegroundColor Yellow
+        Write-Host "  • Navigate to the folder:" -ForegroundColor Yellow -NoNewline
+        Write-Host " cd /home/root/rm-background-manager" -ForegroundColor White
+        Write-Host "  • Run the application:" -ForegroundColor Yellow -NoNewline
+        Write-Host " bash wallpaper-manager.sh" -ForegroundColor White
+        Write-Host
+        Write-Host $SEPARATOR -ForegroundColor Cyan
+        Write-Host "             Connecting to reMarkable..." -ForegroundColor Cyan
+        Write-Host $SEPARATOR -ForegroundColor Cyan
+        Write-Host
+        
+        # Connect via SSH
+        if (Get-Command ssh.exe -ErrorAction SilentlyContinue) {
+            ssh.exe root@$REMARKABLE_IP
+        } elseif (Get-Command plink.exe -ErrorAction SilentlyContinue) {
+            plink.exe -ssh root@$REMARKABLE_IP
+        } else {
+            Write-Host "✗ Warning: " -ForegroundColor Yellow -NoNewline
+            Write-Host "SSH client not found (ssh.exe or plink.exe)." -ForegroundColor Yellow
+            Write-Host "Please connect manually using an SSH client with:" -ForegroundColor Yellow
+            Write-Host "  Host: root@$REMARKABLE_IP" -ForegroundColor White
+        }
+    } else {
+        throw "File copy operation failed."
+    }
 } catch {
     Write-Host
     Write-Host "✗ Error: " -ForegroundColor Red -NoNewline
