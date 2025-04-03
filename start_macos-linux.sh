@@ -42,6 +42,132 @@ if [ ! -d "rm-background-manager" ]; then
     exit 1
 fi
 
+# List of background files
+BACKGROUND_FILES=(
+    "batteryempty.png"
+    "factory.png"
+    "hibernate.png"
+    "overheating.png"
+    "poweroff.png"
+    "rebooting.png"
+    "restart-crashed.png"
+    "starting.png"
+    "suspended.png"
+)
+
+# Function to display installation mode menu
+display_mode_menu() {
+    echo -e "${BOLD}Choose your installation mode:${RESET}"
+    echo -e "${BOLD}1.${RESET} Guided Mode ${BLUE}(Add your own images for each background type)${RESET}"
+    echo -e "${BOLD}2.${RESET} Manual Mode ${BLUE}(Upload predefined images from custom-backgrounds folder)${RESET}"
+    echo -e "${BOLD}3.${RESET} Exit"
+    echo
+    read -p "Enter your choice (1-3): " MODE_CHOICE
+}
+
+# Function to handle guided installation
+guided_installation() {
+    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo -e "${BOLD}${BLUE}           Guided Wallpaper Setup${RESET}"
+    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo
+    
+    # Create custom-backgrounds directory if it doesn't exist
+    if [ ! -d "rm-background-manager/custom-backgrounds" ]; then
+        mkdir -p "rm-background-manager/custom-backgrounds"
+        echo -e "${GREEN}Created custom-backgrounds directory${RESET}"
+    fi
+    
+    echo -e "${YELLOW}For each background type, provide the path to your custom image.${RESET}"
+    echo -e "${YELLOW}You can drag and drop image files into the terminal window.${RESET}"
+    echo -e "${YELLOW}Enter 'skip' to leave any background unchanged.${RESET}"
+    echo
+    
+    # Process each background file
+    for bg_file in "${BACKGROUND_FILES[@]}"; do
+        echo -e "${BOLD}Background type:${RESET} ${BLUE}$bg_file${RESET}"
+        echo -e "Description: $(get_description "$bg_file")"
+        echo -e "Enter path to custom image or type 'skip':"
+        read -r IMAGE_PATH
+        
+        # Skip if user entered 'skip'
+        if [ "$IMAGE_PATH" = "skip" ]; then
+            echo -e "${YELLOW}Skipping $bg_file${RESET}"
+            echo
+            continue
+        fi
+        
+        # Remove quotes if present (happens with drag and drop on some terminals)
+        IMAGE_PATH=$(echo "$IMAGE_PATH" | tr -d "'\"")
+        
+        # Check if file exists
+        if [ ! -f "$IMAGE_PATH" ]; then
+            echo -e "${RED}${BOLD}Error:${RESET} ${RED}File not found: $IMAGE_PATH${RESET}"
+            echo -e "${RED}Skipping this background type.${RESET}"
+            echo
+            continue
+        fi
+        
+        # Check if it's an image file
+        if [[ ! "$IMAGE_PATH" =~ \.(png|jpg|jpeg|PNG|JPG|JPEG)$ ]]; then
+            echo -e "${RED}${BOLD}Error:${RESET} ${RED}Not an image file: $IMAGE_PATH${RESET}"
+            echo -e "${RED}Please provide a PNG or JPEG image file.${RESET}"
+            echo -e "${RED}Skipping this background type.${RESET}"
+            echo
+            continue
+        fi
+        
+        # Copy the file to the custom-backgrounds folder with the correct name
+        cp "$IMAGE_PATH" "rm-background-manager/custom-backgrounds/$bg_file"
+        echo -e "${GREEN}${BOLD}✓${RESET} ${GREEN}Added custom image for $bg_file${RESET}"
+        echo
+    done
+    
+    echo -e "${GREEN}${BOLD}✓ Success!${RESET} ${GREEN}Custom backgrounds have been prepared.${RESET}"
+    echo -e "${YELLOW}Now proceeding to copy files to your reMarkable tablet...${RESET}"
+    echo
+}
+
+# Function to get description of each background type
+get_description() {
+    local file="$1"
+    case "$file" in
+        "batteryempty.png") echo "Shown when battery is completely depleted" ;;
+        "factory.png") echo "Factory reset screen" ;;
+        "hibernate.png") echo "Shown when device enters deep sleep mode" ;;
+        "overheating.png") echo "Warning screen when device overheats" ;;
+        "poweroff.png") echo "Shown when device is powering off" ;;
+        "rebooting.png") echo "Displayed during reboot process" ;;
+        "restart-crashed.png") echo "Shown after a system crash" ;;
+        "starting.png") echo "Boot/startup screen" ;;
+        "suspended.png") echo "Sleep/suspend mode screen" ;;
+        *) echo "System background image" ;;
+    esac
+}
+
+# Display mode menu and get user's choice
+display_mode_menu
+
+case "$MODE_CHOICE" in
+    "1")
+        # Guided Mode
+        guided_installation
+        ;;
+    "2")
+        # Manual Mode - continue with original flow
+        echo -e "${YELLOW}Proceeding with manual installation using existing files...${RESET}"
+        echo
+        ;;
+    "3")
+        echo -e "${BLUE}Exiting program.${RESET}"
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}${BOLD}Error:${RESET} ${RED}Invalid option. Using Manual Mode by default.${RESET}"
+        echo
+        ;;
+esac
+
 # Get the IP address of the reMarkable
 echo -e "${BOLD}Step 1:${RESET} Enter your device information"
 read -p "Enter your reMarkable's IP address: " REMARKABLE_IP
