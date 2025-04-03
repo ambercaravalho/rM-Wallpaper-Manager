@@ -55,6 +55,56 @@ BACKGROUND_FILES=(
     "suspended.png"
 )
 
+# Device resolution constants
+RM1_WIDTH=1404
+RM1_HEIGHT=1872
+RM2_WIDTH=1404
+RM2_HEIGHT=1872
+RMPRO_WIDTH=1872
+RMPRO_HEIGHT=2404
+
+# Function to check if ImageMagick is installed
+check_imagemagick() {
+    if ! command -v convert >/dev/null 2>&1; then
+        echo -e "${YELLOW}${BOLD}Warning:${RESET} ${YELLOW}ImageMagick is not installed.${RESET}"
+        echo -e "${YELLOW}Without ImageMagick, images cannot be automatically converted or resized.${RESET}"
+        echo -e "${YELLOW}Please install ImageMagick for the best experience:${RESET}"
+        echo -e "  ${BLUE}macOS:${RESET} brew install imagemagick"
+        echo -e "  ${BLUE}Linux:${RESET} sudo apt-get install imagemagick"
+        echo
+        read -p "Continue without image conversion? (y/n): " CONTINUE
+        if [[ $CONTINUE != "y" && $CONTINUE != "Y" ]]; then
+            echo -e "${RED}Installation aborted.${RESET}"
+            exit 1
+        fi
+        return 1
+    fi
+    return 0
+}
+
+# Function to convert and resize image
+convert_and_resize_image() {
+    local source="$1"
+    local destination="$2"
+    local device_width="$3"
+    local device_height="$4"
+    
+    if ! check_imagemagick; then
+        # Just copy the file if ImageMagick is not available
+        cp "$source" "$destination"
+        return
+    fi
+    
+    echo -e "${BLUE}Converting and resizing image...${RESET}"
+    
+    # Convert to PNG and resize while maintaining aspect ratio
+    convert "$source" -resize "${device_width}x${device_height}" \
+        -background white -gravity center -extent "${device_width}x${device_height}" \
+        "$destination"
+        
+    echo -e "${GREEN}Image processed successfully.${RESET}"
+}
+
 # Function to display installation mode menu
 display_mode_menu() {
     echo -e "${BOLD}Choose your installation mode:${RESET}"
@@ -65,12 +115,53 @@ display_mode_menu() {
     read -p "Enter your choice (1-3): " MODE_CHOICE
 }
 
+# Function to select device model
+select_device_model() {
+    echo -e "${BOLD}Select your reMarkable device model:${RESET}"
+    echo -e "${BOLD}1.${RESET} reMarkable 1"
+    echo -e "${BOLD}2.${RESET} reMarkable 2"
+    echo -e "${BOLD}3.${RESET} reMarkable Paper Pro"
+    echo
+    read -p "Enter your choice (1-3): " DEVICE_CHOICE
+    
+    case "$DEVICE_CHOICE" in
+        "1")
+            echo -e "${GREEN}Selected: reMarkable 1${RESET}"
+            DEVICE_WIDTH=$RM1_WIDTH
+            DEVICE_HEIGHT=$RM1_HEIGHT
+            ;;
+        "2")
+            echo -e "${GREEN}Selected: reMarkable 2${RESET}"
+            DEVICE_WIDTH=$RM2_WIDTH
+            DEVICE_HEIGHT=$RM2_HEIGHT
+            ;;
+        "3")
+            echo -e "${GREEN}Selected: reMarkable Paper Pro${RESET}"
+            DEVICE_WIDTH=$RMPRO_WIDTH
+            DEVICE_HEIGHT=$RMPRO_HEIGHT
+            ;;
+        *)
+            echo -e "${YELLOW}Invalid selection. Using reMarkable 2 dimensions by default.${RESET}"
+            DEVICE_WIDTH=$RM2_WIDTH
+            DEVICE_HEIGHT=$RM2_HEIGHT
+            ;;
+    esac
+    echo
+}
+
 # Function to handle guided installation
 guided_installation() {
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo -e "${BOLD}${BLUE}           Guided Wallpaper Setup${RESET}"
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo
+    
+    # Select device model to set correct dimensions
+    select_device_model
+    
+    # Check for ImageMagick
+    HAS_IMAGEMAGICK=true
+    check_imagemagick || HAS_IMAGEMAGICK=false
     
     # Create custom-backgrounds directory if it doesn't exist
     if [ ! -d "rm-background-manager/custom-backgrounds" ]; then
@@ -81,6 +172,9 @@ guided_installation() {
     echo -e "${YELLOW}For each background type, provide the path to your custom image.${RESET}"
     echo -e "${YELLOW}You can drag and drop image files into the terminal window.${RESET}"
     echo -e "${YELLOW}Enter 'skip' to leave any background unchanged.${RESET}"
+    if [ "$HAS_IMAGEMAGICK" = true ]; then
+        echo -e "${GREEN}Images will be automatically converted to PNG and resized to fit your device.${RESET}"
+    fi
     echo
     
     # Process each background file
@@ -109,16 +203,25 @@ guided_installation() {
         fi
         
         # Check if it's an image file
-        if [[ ! "$IMAGE_PATH" =~ \.(png|jpg|jpeg|PNG|JPG|JPEG)$ ]]; then
-            echo -e "${RED}${BOLD}Error:${RESET} ${RED}Not an image file: $IMAGE_PATH${RESET}"
-            echo -e "${RED}Please provide a PNG or JPEG image file.${RESET}"
+        if [[ ! "$IMAGE_PATH" =~ \.(png|jpg|jpeg|PNG|JPG|JPEG|gif|GIF|bmp|BMP|tiff|TIFF)$ ]]; then
+            echo -e "${RED}${BOLD}Error:${RESET} ${RED}Not a supported image file: $IMAGE_PATH${RESET}"
+            echo -e "${RED}Please provide a supported image format.${RESET}"
             echo -e "${RED}Skipping this background type.${RESET}"
             echo
             continue
         fi
         
-        # Copy the file to the custom-backgrounds folder with the correct name
-        cp "$IMAGE_PATH" "rm-background-manager/custom-backgrounds/$bg_file"
+        # Destination file path
+        DEST_FILE="rm-background-manager/custom-backgrounds/$bg_file"
+        
+        # Convert and resize image
+        if [ "$HAS_IMAGEMAGICK" = true ]; then
+            convert_and_resize_image "$IMAGE_PATH" "$DEST_FILE" "$DEVICE_WIDTH" "$DEVICE_HEIGHT"
+        else
+            # Just copy the file if ImageMagick is not available
+            cp "$IMAGE_PATH" "$DEST_FILE"
+        fi
+        
         echo -e "${GREEN}${BOLD}✓${RESET} ${GREEN}Added custom image for $bg_file${RESET}"
         echo
     done

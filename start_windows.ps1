@@ -28,6 +28,124 @@ $BACKGROUND_FILES = @(
     "suspended.png"
 )
 
+# Device resolution constants
+$RM1_WIDTH = 1404
+$RM1_HEIGHT = 1872
+$RM2_WIDTH = 1404
+$RM2_HEIGHT = 1872
+$RMPRO_WIDTH = 1872
+$RMPRO_HEIGHT = 2404
+
+# Global variables for device dimensions
+$DEVICE_WIDTH = $RM2_WIDTH  # Default to reMarkable 2
+$DEVICE_HEIGHT = $RM2_HEIGHT
+
+# Function to check if image manipulation is available
+function Test-ImageManipulation {
+    # Check if System.Drawing is available (should be in .NET)
+    try {
+        Add-Type -AssemblyName System.Drawing
+        return $true
+    } catch {
+        Write-Host "Warning: " -ForegroundColor Yellow -NoNewline
+        Write-Host "Image manipulation capabilities not available." -ForegroundColor Yellow
+        Write-Host "Images will be copied as-is without resizing." -ForegroundColor Yellow
+        Write-Host
+        return $false
+    }
+}
+
+# Function to convert and resize image
+function Convert-ResizeImage {
+    param(
+        [string]$SourcePath,
+        [string]$DestinationPath,
+        [int]$Width,
+        [int]$Height
+    )
+    
+    Write-Host "Converting and resizing image..." -ForegroundColor Cyan
+    
+    try {
+        # Load System.Drawing assembly
+        Add-Type -AssemblyName System.Drawing
+        
+        # Load the image from file
+        $originalImage = [System.Drawing.Image]::FromFile($SourcePath)
+        
+        # Create a new blank image with correct dimensions and white background
+        $resizedImage = New-Object System.Drawing.Bitmap($Width, $Height)
+        $graphics = [System.Drawing.Graphics]::FromImage($resizedImage)
+        $graphics.Clear([System.Drawing.Color]::White)
+        
+        # Calculate new dimensions preserving aspect ratio
+        $originalWidth = $originalImage.Width
+        $originalHeight = $originalImage.Height
+        $ratioX = $Width / $originalWidth
+        $ratioY = $Height / $originalHeight
+        $ratio = [Math]::Min($ratioX, $ratioY)
+        
+        $newWidth = [int]($originalWidth * $ratio)
+        $newHeight = [int]($originalHeight * $ratio)
+        
+        # Calculate centering position
+        $posX = [int](($Width - $newWidth) / 2)
+        $posY = [int](($Height - $newHeight) / 2)
+        
+        # Draw the resized image centered on the new canvas
+        $graphics.DrawImage($originalImage, $posX, $posY, $newWidth, $newHeight)
+        
+        # Save the result
+        $resizedImage.Save($DestinationPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        
+        # Clean up
+        $graphics.Dispose()
+        $resizedImage.Dispose()
+        $originalImage.Dispose()
+        
+        Write-Host "✓ Image processed successfully." -ForegroundColor Green
+    } catch {
+        Write-Host "✗ Error processing image: $_" -ForegroundColor Red
+        Write-Host "Copying file without conversion..." -ForegroundColor Yellow
+        Copy-Item -Path $SourcePath -Destination $DestinationPath
+    }
+}
+
+# Function to select device model
+function Select-DeviceModel {
+    Write-Host "Select your reMarkable device model:" -ForegroundColor White
+    Write-Host "1. reMarkable 1" -ForegroundColor White
+    Write-Host "2. reMarkable 2" -ForegroundColor White
+    Write-Host "3. reMarkable Paper Pro" -ForegroundColor White
+    Write-Host
+    
+    $deviceChoice = Read-Host "Enter your choice (1-3)"
+    
+    switch ($deviceChoice) {
+        "1" {
+            Write-Host "Selected: reMarkable 1" -ForegroundColor Green
+            $script:DEVICE_WIDTH = $RM1_WIDTH
+            $script:DEVICE_HEIGHT = $RM1_HEIGHT
+        }
+        "2" {
+            Write-Host "Selected: reMarkable 2" -ForegroundColor Green
+            $script:DEVICE_WIDTH = $RM2_WIDTH
+            $script:DEVICE_HEIGHT = $RM2_HEIGHT
+        }
+        "3" {
+            Write-Host "Selected: reMarkable Paper Pro" -ForegroundColor Green
+            $script:DEVICE_WIDTH = $RMPRO_WIDTH
+            $script:DEVICE_HEIGHT = $RMPRO_HEIGHT
+        }
+        default {
+            Write-Host "Invalid selection. Using reMarkable 2 dimensions by default." -ForegroundColor Yellow
+            $script:DEVICE_WIDTH = $RM2_WIDTH
+            $script:DEVICE_HEIGHT = $RM2_HEIGHT
+        }
+    }
+    Write-Host
+}
+
 # Function to display installation mode menu
 function Display-ModeMenu {
     Write-Host "Choose your installation mode:" -ForegroundColor White
@@ -48,6 +166,12 @@ function Start-GuidedInstallation {
     Write-Host $SEPARATOR -ForegroundColor Cyan
     Write-Host
     
+    # Select device model to set correct dimensions
+    Select-DeviceModel
+    
+    # Check if image manipulation is available
+    $hasImageCapabilities = Test-ImageManipulation
+    
     # Create custom-backgrounds directory if it doesn't exist
     $customBgPath = "rm-background-manager\custom-backgrounds"
     if (-Not (Test-Path -Path $customBgPath -PathType Container)) {
@@ -58,6 +182,9 @@ function Start-GuidedInstallation {
     Write-Host "For each background type, provide the path to your custom image." -ForegroundColor Yellow
     Write-Host "You can drag and drop image files into the terminal window." -ForegroundColor Yellow
     Write-Host "Enter 'skip' to leave any background unchanged." -ForegroundColor Yellow
+    if ($hasImageCapabilities) {
+        Write-Host "Images will be automatically converted to PNG and resized to fit your device." -ForegroundColor Green
+    }
     Write-Host
     
     # Process each background file
@@ -89,17 +216,26 @@ function Start-GuidedInstallation {
         }
         
         # Check if it's an image file
-        if ($imagePath -notmatch "\.(png|jpg|jpeg|PNG|JPG|JPEG)$") {
+        if ($imagePath -notmatch "\.(png|jpg|jpeg|PNG|JPG|JPEG|gif|GIF|bmp|BMP|tiff|TIFF)$") {
             Write-Host "Error: " -ForegroundColor Red -NoNewline
             Write-Host "Not an image file: $imagePath" -ForegroundColor Red
-            Write-Host "Please provide a PNG or JPEG image file." -ForegroundColor Red
+            Write-Host "Please provide a supported image file." -ForegroundColor Red
             Write-Host "Skipping this background type." -ForegroundColor Red
             Write-Host
             continue
         }
         
-        # Copy the file to the custom-backgrounds folder with the correct name
-        Copy-Item -Path $imagePath -Destination "$customBgPath\$bgFile"
+        # Destination file path
+        $destFile = "$customBgPath\$bgFile"
+        
+        # Convert and resize image if possible, otherwise just copy
+        if ($hasImageCapabilities) {
+            Convert-ResizeImage -SourcePath $imagePath -DestinationPath $destFile -Width $DEVICE_WIDTH -Height $DEVICE_HEIGHT
+        } else {
+            # Just copy the file if image manipulation is not available
+            Copy-Item -Path $imagePath -Destination $destFile
+        }
+        
         Write-Host "✓ Added custom image for $bgFile" -ForegroundColor Green
         Write-Host
     }
