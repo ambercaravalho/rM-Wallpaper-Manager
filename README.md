@@ -12,20 +12,14 @@ This tool allows you to customize the splash screens (wallpapers) that appear on
 - Your reMarkable tablet connected via USB on your computer
 - SSH password (found in `Settings > About > Copyrights and licenses > GPLv3 Compliance`)
 
-### For reMarkable Paper Pro
-- You must enable Developer Mode:
-  - `Settings > General > Developer options`
-  - Or visit: [reMarkable Developer Mode](https://support.remarkable.com/s/article/Developer-mode)
+### Some Notes
+
+| For reMarkable Paper Pro  | Security Note |
+| ------------- | ------------- |
+| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`.  | For reMarkable 2 or Paper Pro, it's recommended to enable full device encryption: `Settings > Security > Data Protection > Security Level`  |
 
 > [!IMPORTANT]
-> This action will wipe your entire device. Be sure to either backup your device or sync with reMarkable Connect before continuing!
-
-### Security Note
-- For reMarkable 2 or Paper Pro, it's recommended to enable full device encryption:
-  - Settings > Security > Data Protection > Security Level
-
-> [!IMPORTANT]
-> This action will wipe your entire device. Be sure to either backup your device or sync with reMarkable Connect before continuing!
+> These actions will wipe your entire device. Be sure to either backup your device or sync with reMarkable Connect before continuing!
 
 ## Installation
 
@@ -52,37 +46,44 @@ git clone https://github.com/ambercaravalho/rM-Wallpaper-Manager.git
 
 ### Step 3: Install on Your reMarkable
 
-#### For macOS/Linux Users:
-1. Open Terminal
-2. Navigate to the downloaded repository folder:
+Click the dropdown for your operating system below:
+
+<details><summary>For macOS/Linux Users</summary>
+
+1. Connect your tablet to the computer via USB
+2. Open Terminal
+3. Navigate to the downloaded repository folder:
    ```bash
    cd path/to/rM-Wallpaper-Manager
    ```
-3. Make the start script executable:
+4. Make the start script executable:
    ```bash
    chmod +x start_macos-linux.sh
    ```
-4. Run the start script:
+5. Run the start script:
    ```bash
    ./start_macos-linux.sh
    ```
-5. Enter your reMarkable's IP address when prompted
-   - You can find this in `Settings > About > Copyrights and licenses > GPLv3 Compliance`
-6. Enter your device password when prompted
 
-#### For Windows Users:
-1. Open PowerShell
-2. Navigate to the downloaded repository folder:
+</details>
+
+<details><summary>For Windows Users</summary>
+
+1. Connect your tablet to the computer via USB
+2. Open PowerShell
+3. Navigate to the downloaded repository folder:
    ```powershell
    cd path\to\rM-Wallpaper-Manager
    ```
-3. Run the start script:
+4. Run the start script:
    ```powershell
    .\start_windows.ps1
    ```
-4. Enter your reMarkable's IP address when prompted
-   - You can find this in `Settings > About > Copyrights and licenses > GPLv3 Compliance`
-5. Enter your device password when prompted
+
+</details>
+
+> [!TIP]
+> You can find your reMarkable's IP address here: `Settings > About > Copyrights and licenses > GPLv3 Compliance`
 
 ## Using the Wallpaper Manager on Your reMarkable
 
@@ -111,7 +112,7 @@ Once connected via SSH, run the following commands:
 
 ## Troubleshooting
 
-- **Cannot connect to reMarkable**: Verify that developer mode is enabled (if supported) and that your tablet is displayed as a network device on your computer.
+- **Can't connect to reMarkable**: Verify that developer mode is enabled (if supported) and that your tablet is displayed as a network device on your computer.
 - **Permission denied errors**: Make sure you're using the correct password from your device settings.
 - **Wallpapers not showing up**: Verify that your images are PNG files, that they are properly named, and that they are placed in the custom-backgrounds folder.
 - **Changes not appearing**: Reboot your reMarkable tablet after installing or updating wallpapers.
