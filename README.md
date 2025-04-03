@@ -16,7 +16,7 @@ This tool allows you to customize the splash screens (wallpapers) that appear on
 
 | For reMarkable Paper Pro  | For reMarkable 2 |
 | ------------- | ------------- |
-| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`.  | I'd *strongly* recommended enabling  encryption: `Settings > Security > Data Protection > Security Level`  |
+| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`.  | I'd *strongly* recommended enabling data encryption: `Settings > Security > Data Protection > Security Level`  |
 
 > [!IMPORTANT]
 > Both these actions 👆 will wipe your entire device. Be sure to either backup your data directory or sync with reMarkable Connect before continuing!
@@ -100,15 +100,16 @@ Once connected via SSH, run the following commands:
    cd /home/root/rm-background-manager
    ```
 
-2. Install the wallpapers (first-time setup):
+2. Run the wallpaper manager script:
    ```bash
-   bash install.sh
+   bash wallpaper-manager.sh
    ```
 
-3. For future wallpaper updates (after changing the PNG files):
-   ```bash
-   bash update.sh
-   ```
+3. Choose from the available options in the menu:
+   - Option 1: Install Custom Wallpapers (creates backups of original files)
+   - Option 2: Update Wallpapers (removes existing links)
+   - Option 3: Restore Original Wallpapers (restores from backups)
+   - Option 4: Exit
 
 ## Troubleshooting
 
@@ -119,7 +120,10 @@ Once connected via SSH, run the following commands:
 
 ## Reverting to Default Wallpapers
 
-The install script creates backup files with ".bak" extensions. To restore the original wallpapers, connect via SSH and move these files back:
+The installed wallpapers can be reverted to default in two ways:
+
+1. Using the wallpaper manager script (Option 3)
+2. Manually restoring from backup files:
 
 ```bash
 cd /usr/share/remarkable
