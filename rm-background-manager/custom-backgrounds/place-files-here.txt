@@ -1,0 +1,14 @@
+Place your custom wallpaper files here. A couple of things to note:
+
+- They MUST be .PNG files
+- I'd recommend a size of 1404×1872 pixels for the reMarkable 2
+- Name the files exactly like the following:
+    "batteryempty.png"
+    "factory.png"
+    "hibernate.png"
+    "overheating.png"
+    "poweroff.png"
+    "rebooting.png"
+    "restart-crashed.png"
+    "starting.png"
+    "suspended.png"
