@@ -16,7 +16,7 @@ This tool allows you to customize the splash screens (wallpapers) that appear on
 
 | For reMarkable Paper Pro  | For reMarkable 2 |
 | ------------- | ------------- |
-| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`.  | I'd *strongly* recommended enabling data encryption: `Settings > Security > Data Protection > Security Level`  |
+| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`  | I'd *strongly* recommended enabling data encryption: `Settings > Security > Data Protection > Security Level`  |
 
 > [!IMPORTANT]
 > Both these actions 👆 will wipe your entire device. Be sure to either backup your data directory or sync with reMarkable Connect before continuing!
