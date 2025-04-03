@@ -136,6 +136,21 @@ restore_original_wallpapers() {
     fi
 }
 
+# Function to prompt for reboot
+prompt_reboot() {
+    echo
+    echo -e "${YELLOW}${BOLD}Note:${RESET} ${YELLOW}A reboot is required for changes to take effect.${RESET}"
+    echo -e "${BOLD}Would you like to reboot now? (y/n):${RESET}"
+    read -r REBOOT_CHOICE
+    
+    if [[ "$REBOOT_CHOICE" == "y" || "$REBOOT_CHOICE" == "Y" ]]; then
+        echo -e "${BLUE}Rebooting the device...${RESET}"
+        reboot
+    else
+        echo -e "${BLUE}Please remember to reboot your device later for changes to take effect.${RESET}"
+    fi
+}
+
 # Setting the directories
 REMARKABLE_DIR="/usr/share/remarkable"
 CUSTOM_BACKGROUNDS_DIR="./custom-backgrounds"
@@ -192,6 +207,7 @@ case "$CHOICE" in
         fi
 
         install_wallpapers
+        prompt_reboot
         ;;
     "2")
         # Display warning and prompt for confirmation
@@ -226,6 +242,7 @@ case "$CHOICE" in
         fi
 
         update_wallpapers
+        prompt_reboot
         ;;
     "3")
         # Display warning and prompt for confirmation
@@ -252,6 +269,7 @@ case "$CHOICE" in
         fi
 
         restore_original_wallpapers
+        prompt_reboot
         ;;
     "4")
         echo -e "${BLUE}Exiting program.${RESET}"
