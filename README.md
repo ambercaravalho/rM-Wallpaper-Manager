@@ -107,9 +107,13 @@ Once connected via SSH, run the following commands:
 
 3. Choose from the available options in the menu:
    - Option 1: Install Custom Wallpapers (creates backups of original files)
-   - Option 2: Update Wallpapers (removes existing links)
+   - Option 2: Update Wallpapers (reinstalls after system update, creates backups)
    - Option 3: Restore Original Wallpapers (restores from backups)
    - Option 4: Exit
+
+> [!WARNING]
+> After every reMarkable software update, the device resets custom wallpapers to defaults.
+> You'll need to SSH back into your tablet and run the wallpaper manager script again using Option 2 (Update Wallpapers). You don't need to repeat the computer-side setup.
 
 ## Troubleshooting
 
@@ -117,6 +121,7 @@ Once connected via SSH, run the following commands:
 - **Permission denied errors**: Make sure you're using the correct password from your device settings.
 - **Wallpapers not showing up**: Verify that your images are PNG files, that they are properly named, and that they are placed in the custom-backgrounds folder.
 - **Changes not appearing**: Reboot your reMarkable tablet after installing or updating wallpapers.
+- **After reMarkable update**: Use Option 2 in the wallpaper manager to reinstall your custom wallpapers.
 
 ## Reverting to Default Wallpapers
 
@@ -125,11 +130,11 @@ The installed wallpapers can be reverted to default in two ways:
 1. Using the wallpaper manager script (Option 3)
 2. Manually restoring from backup files:
 
-```bash
-cd /usr/share/remarkable
-mv batteryempty.png.bak batteryempty.png
-# Repeat for other wallpaper files
-```
+  ```bash
+  cd /usr/share/remarkable
+  mv batteryempty.png.bak batteryempty.png
+  # Repeat for other wallpaper files
+  ```
 
 ## Disclaimer
 

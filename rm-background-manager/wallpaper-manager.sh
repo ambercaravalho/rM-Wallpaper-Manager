@@ -16,7 +16,7 @@ display_menu() {
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo
     echo -e "${BOLD}1.${RESET} Install Custom Wallpapers ${BLUE}(creates backups of original files)${RESET}"
-    echo -e "${BOLD}2.${RESET} Update Wallpapers ${BLUE}(replaces existing files)${RESET}"
+    echo -e "${BOLD}2.${RESET} Update Wallpapers ${BLUE}(reinstalls after system update, creates backups)${RESET}"
     echo -e "${BOLD}3.${RESET} Restore Original Wallpapers ${BLUE}(restores from backups)${RESET}"
     echo -e "${BOLD}4.${RESET} Exit"
     echo
@@ -62,9 +62,9 @@ install_wallpapers() {
     echo -e "${GREEN}${BOLD}✓ Success!${RESET} ${GREEN}All available files have been copied to $REMARKABLE_DIR${RESET}"
 }
 
-# Function to update wallpapers (removes existing files)
+# Function to update wallpapers (after system update)
 update_wallpapers() {
-    echo -e "${BOLD}${BLUE}Updating wallpapers (replacing existing files)...${RESET}"
+    echo -e "${BOLD}${BLUE}Updating wallpapers after system update (creating backups)...${RESET}"
     echo
     
     # Process each file
@@ -72,10 +72,15 @@ update_wallpapers() {
     for file in "${FILES[@]}"; do
         # Check if the file exists in the custom-backgrounds folder
         if [ -f "$CUSTOM_BACKGROUNDS_DIR/$file" ]; then
-            # Remove any existing file in the remarkable directory
-            if [ -e "$REMARKABLE_DIR/$file" ]; then
-                rm "$REMARKABLE_DIR/$file"
-                echo -e "  ${GREEN}✓${RESET} Removed existing $REMARKABLE_DIR/$file"
+            # If the file exists in the remarkable directory, rename it to .bak
+            if [ -f "$REMARKABLE_DIR/$file" ]; then
+                # Only create backup if one doesn't already exist
+                if [ -f "$REMARKABLE_DIR/$file.bak" ]; then
+                    echo -e "  ${YELLOW}⚠${RESET} Backup for $file already exists, keeping original backup"
+                else
+                    mv "$REMARKABLE_DIR/$file" "$REMARKABLE_DIR/$file.bak"
+                    echo -e "  ${GREEN}✓${RESET} Renamed $REMARKABLE_DIR/$file to $REMARKABLE_DIR/$file.bak"
+                fi
             fi
 
             # Copy the file to the remarkable directory
