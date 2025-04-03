@@ -30,21 +30,7 @@ Clone or download this repository to your computer.
 git clone https://github.com/ambercaravalho/rM-Wallpaper-Manager.git
 ```
 
-### Step 2: Prepare Your Custom Wallpapers
-1. Create your custom wallpaper PNG files (1404×1872 pixels is recommended)
-2. Place them in the `rm-background-manager/custom-backgrounds` folder
-3. Name the files according to where you want them to appear:
-   - `batteryempty.png` - Shown when battery is depleted
-   - `factory.png` - Factory reset screen
-   - `hibernate.png` - Hibernation screen
-   - `overheating.png` - Overheating warning
-   - `poweroff.png` - Shutdown screen
-   - `rebooting.png` - Reboot screen
-   - `restart-crashed.png` - Crash recovery
-   - `starting.png` - Startup screen
-   - `suspended.png` - Suspended/sleep mode
-
-### Step 3: Install on Your reMarkable
+### Step 2: Run the Installation Script
 
 Click the dropdown for your operating system below:
 
@@ -79,19 +65,40 @@ Click the dropdown for your operating system below:
    ```powershell
    .\start_windows.ps1
    ```
+   > [!NOTE]
+   > For Windows users, having PuTTY or OpenSSH Client installed will make the connection process smoother.
 
 </details>
+
+### Step 3: Choose Your Installation Mode
+
+The script will offer you two installation options:
+
+1. **Guided Mode** - Interactively select images for each background type
+   - Select your device model
+   - For each background type, specify an image from your computer
+   - Images will be automatically converted and resized to match your device (requires ImageMagick on macOS/Linux or System.Drawing on Windows)
+   
+2. **Manual Mode** - Use pre-prepared images in the custom-backgrounds folder
+   - Create your custom wallpaper PNG files (1404×1872 pixels for rM1/rM2, 1872×2404 pixels for Paper Pro)
+   - Place them in the `rm-background-manager/custom-backgrounds` folder
+   - Name the files according to where you want them to appear:
+     - `batteryempty.png` - Shown when battery is depleted
+     - `factory.png` - Factory reset screen
+     - `hibernate.png` - Hibernation screen
+     - `overheating.png` - Overheating warning
+     - `poweroff.png` - Shutdown screen
+     - `rebooting.png` - Reboot screen
+     - `restart-crashed.png` - Crash recovery
+     - `starting.png` - Startup screen
+     - `suspended.png` - Suspended/sleep mode
 
 > [!TIP]
 > You can find your reMarkable's IP address here: `Settings > About > Copyrights and licenses > GPLv3 Compliance`
 
 ## Using the Wallpaper Manager on Your reMarkable
 
-After installation, connect to your reMarkable through SSH:
-
-```bash
-ssh root@YOUR_REMARKABLE_IP
-```
+After installation, the script will automatically connect you to your reMarkable through SSH.
 
 Once connected via SSH, run the following commands:
 
@@ -143,4 +150,3 @@ This tool modifies system files on your reMarkable device. Use at your own risk.
 ## License
 
 This project is available as open source under the terms of the MIT License.
-
