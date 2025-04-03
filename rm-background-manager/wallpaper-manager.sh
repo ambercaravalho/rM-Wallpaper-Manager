@@ -35,8 +35,13 @@ install_wallpapers() {
         if [ -f "$CUSTOM_BACKGROUNDS_DIR/$file" ]; then
             # If the file exists in the remarkable directory, rename it to .bak
             if [ -f "$REMARKABLE_DIR/$file" ]; then
-                mv "$REMARKABLE_DIR/$file" "$REMARKABLE_DIR/$file.bak"
-                echo -e "  ${GREEN}✓${RESET} Renamed $REMARKABLE_DIR/$file to $REMARKABLE_DIR/$file.bak"
+                # Only create backup if one doesn't already exist
+                if [ -f "$REMARKABLE_DIR/$file.bak" ]; then
+                    echo -e "  ${YELLOW}⚠${RESET} Backup for $file already exists, keeping original backup"
+                else
+                    mv "$REMARKABLE_DIR/$file" "$REMARKABLE_DIR/$file.bak"
+                    echo -e "  ${GREEN}✓${RESET} Renamed $REMARKABLE_DIR/$file to $REMARKABLE_DIR/$file.bak"
+                fi
             fi
 
             # Copy the file to the remarkable directory
