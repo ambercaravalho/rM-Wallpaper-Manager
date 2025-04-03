@@ -12,14 +12,14 @@ This tool allows you to customize the splash screens (wallpapers) that appear on
 - Your reMarkable tablet connected via USB on your computer
 - SSH password (found in `Settings > About > Copyrights and licenses > GPLv3 Compliance`)
 
-### Some Notes
+### Before We Begin
 
-| For reMarkable Paper Pro  | Security Note |
+| For reMarkable Paper Pro  | For reMarkable 2 |
 | ------------- | ------------- |
-| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`.  | For reMarkable 2 or Paper Pro, it's recommended to enable full device encryption: `Settings > Security > Data Protection > Security Level`  |
+| You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`.  | I'd *strongly* recommended enabling  encryption: `Settings > Security > Data Protection > Security Level`  |
 
 > [!IMPORTANT]
-> These actions will wipe your entire device. Be sure to either backup your device or sync with reMarkable Connect before continuing!
+> Both these actions 👆 will wipe your entire device. Be sure to either backup your data directory or sync with reMarkable Connect before continuing!
 
 ## Installation
 
