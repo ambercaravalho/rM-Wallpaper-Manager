@@ -65,10 +65,14 @@ Click the dropdown for your operating system below:
    ```powershell
    .\start_windows.ps1
    ```
+
    > [!NOTE]
    > For Windows users, having PuTTY or OpenSSH Client installed will make the connection process smoother.
 
 </details>
+
+> [!TIP]
+> You can find your reMarkable's IP address here: `Settings > About > Copyrights and licenses > GPLv3 Compliance`
 
 ### Step 3: Choose Your Installation Mode
 
@@ -92,9 +96,6 @@ The script will offer you two installation options:
      - `restart-crashed.png` - Crash recovery
      - `starting.png` - Startup screen
      - `suspended.png` - Suspended/sleep mode
-
-> [!TIP]
-> You can find your reMarkable's IP address here: `Settings > About > Copyrights and licenses > GPLv3 Compliance`
 
 ## Using the Wallpaper Manager on Your reMarkable
 
