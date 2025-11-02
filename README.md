@@ -2,19 +2,9 @@
 
 A simple utility to assist in managing the wallpapers (or splash screens) on reMarkable devices.
 
-## Overview
+## Before We Begin
 
-This tool allows you to customize the splash screens (wallpapers) that appear on your reMarkable tablet, including startup, shutdown, battery empty, and other system screens.
-
-## Requirements
-
-- A reMarkable tablet (reMarkable 1, reMarkable 2, or reMarkable Paper Pro)
-- Your reMarkable tablet connected via USB on your computer
-- SSH password (found in `Settings > About > Copyrights and licenses > GPLv3 Compliance`)
-
-### Before We Begin
-
-| For reMarkable Paper Pro  | For reMarkable 2 |
+| For reMarkable Paper Pro (& Move)  | For reMarkable 2 |
 | ------------- | ------------- |
 | You must enable Developer Mode to access SSH and run this script: `Settings > General > Developer options`  | I'd *strongly* recommended enabling data encryption: `Settings > Security > Data Protection > Security Level`  |
 
@@ -24,17 +14,18 @@ This tool allows you to customize the splash screens (wallpapers) that appear on
 ## Installation
 
 ### Step 1: Download the Repository
-Clone or download this repository to your computer.
+
+Clone this repo to your computer:
 
 ```bash
 git clone https://github.com/ambercaravalho/rM-Wallpaper-Manager.git
 ```
 
-### Step 2: Run the Installation Script
+### Step 2: Run the Install Script
 
-Click the dropdown for your operating system below:
+Click the dropdown for your OS:
 
-<details><summary>For macOS/Linux Users</summary>
+<details><summary>For macOS/Linux</summary>
 
 1. Connect your tablet to the computer via USB
 2. Open Terminal
@@ -53,7 +44,7 @@ Click the dropdown for your operating system below:
 
 </details>
 
-<details><summary>For Windows Users</summary>
+<details><summary>For Windows</summary>
 
 1. Connect your tablet to the computer via USB
 2. Open PowerShell
@@ -72,19 +63,22 @@ Click the dropdown for your operating system below:
 </details>
 
 > [!TIP]
-> You can find your reMarkable's IP address here: `Settings > About > Copyrights and licenses > GPLv3 Compliance`
+> You can find your reMarkable's IP address here: `Settings > Help > Copyrights and licenses > GPLv3 Compliance`
 
 ### Step 3: Choose Your Installation Mode
 
 The script will offer you two installation options:
 
-1. **Guided Mode** - Interactively select images for each background type
+1. **Guided Mode** - Interactively select images for each background type.
    - Select your device model
    - For each background type, specify an image from your computer
    - Images will be automatically converted and resized to match your device (requires ImageMagick on macOS/Linux or System.Drawing on Windows)
    
-2. **Manual Mode** - Use pre-prepared images in the custom-backgrounds folder
-   - Create your custom wallpaper PNG files (1404×1872 pixels for rM1/rM2, 1872×2404 pixels for Paper Pro)
+2. **Manual Mode** - Use pre-prepared images in the custom-backgrounds folder.
+   - Create your custom wallpaper PNG files with the correct resolution for your device:
+     - rM1/rM2: 1404×1872 pixels
+     - Paper Pro: 1872×2404 pixels
+     - Paper Pro Move: 1696×954 pixels
    - Place them in the `rm-background-manager/custom-backgrounds` folder
    - Name the files according to where you want them to appear:
      - `batteryempty.png` - Shown when battery is depleted

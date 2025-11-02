@@ -1,421 +1,369 @@
-# reMarkable Wallpaper Manager installer script for Windows
-# Copies rm-background-manager folder to remote reMarkable tablet
+# reMarkable Wallpaper Manager - Installation Script
+# Copies wallpaper manager to your reMarkable tablet
+# For updates: https://github.com/ambercaravalho/rM-Wallpaper-Manager
 
-# Define separator
-$SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#Requires -Version 5.1
+$ErrorActionPreference = 'Stop'
 
-# Welcome header
-Write-Host $SEPARATOR -ForegroundColor Cyan
-Write-Host "        reMarkable Wallpaper Manager Installer" -ForegroundColor Cyan
-Write-Host $SEPARATOR -ForegroundColor Cyan
-Write-Host
-Write-Host "Welcome to " -NoNewline
-Write-Host "reMarkable Wallpaper Manager!" -ForegroundColor White
-Write-Host "For updates and more information, visit:"
-Write-Host "https://github.com/ambercaravalho/rM-Wallpaper-Manager" -ForegroundColor Cyan
-Write-Host
-
-# List of background files
+# Constants
+$SEPARATOR = "━" * 60
 $BACKGROUND_FILES = @(
-    "batteryempty.png",
-    "factory.png",
-    "hibernate.png",
-    "overheating.png",
-    "poweroff.png",
-    "rebooting.png",
-    "restart-crashed.png",
-    "starting.png",
-    "suspended.png"
+    "batteryempty.png", "factory.png", "hibernate.png",
+    "overheating.png", "poweroff.png", "rebooting.png",
+    "restart-crashed.png", "starting.png", "suspended.png"
 )
 
-# Device resolution constants
-$RM1_WIDTH = 1404
-$RM1_HEIGHT = 1872
-$RM2_WIDTH = 1404
-$RM2_HEIGHT = 1872
-$RMPRO_WIDTH = 1872
-$RMPRO_HEIGHT = 2404
+# Device resolutions
+$DEVICE_RESOLUTIONS = @{
+    'rM1' = @{ Width = 1404; Height = 1872 }
+    'rM2' = @{ Width = 1404; Height = 1872 }
+    'rMPro' = @{ Width = 1872; Height = 2404 }
+    'rMProMove' = @{ Width = 1696; Height = 954 }
+}
 
-# Global variables for device dimensions
-$DEVICE_WIDTH = $RM2_WIDTH  # Default to reMarkable 2
-$DEVICE_HEIGHT = $RM2_HEIGHT
+# Global device dimensions
+$script:DeviceWidth = 1404
+$script:DeviceHeight = 1872
 
-# Function to check if image manipulation is available
-function Test-ImageManipulation {
-    # Check if System.Drawing is available (should be in .NET)
+# Functions
+function Show-Header {
+    Write-Host $SEPARATOR -ForegroundColor Cyan
+    Write-Host "    reMarkable Wallpaper Manager" -ForegroundColor Cyan
+    Write-Host $SEPARATOR -ForegroundColor Cyan
+    Write-Host
+}
+
+function Show-ImportantInfo {
+    Write-Host "Before You Start:" -ForegroundColor Yellow
+    Write-Host
+    Write-Host "Paper Pro users: " -NoNewline -ForegroundColor Yellow
+    Write-Host "Enable developer mode first"
+    Write-Host "  → https://support.remarkable.com/s/article/Developer-mode" -ForegroundColor Cyan
+    Write-Host
+    Write-Host "Security recommendation: " -NoNewline -ForegroundColor Yellow
+    Write-Host "Enable device encryption"
+    Write-Host "  Settings → Security → Data Protection"
+    Write-Host
+}
+
+function Test-Prerequisites {
+    if (-Not (Test-Path "rm-background-manager" -PathType Container)) {
+        Write-Host "✗ Error: " -ForegroundColor Red -NoNewline
+        Write-Host "Missing rm-background-manager folder"
+        Write-Host "  Please run this script from the repository root" -ForegroundColor Red
+        exit 1
+    }
+}
+
+function Test-ImageCapabilities {
     try {
-        Add-Type -AssemblyName System.Drawing
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
         return $true
-    } catch {
-        Write-Host "Warning: " -ForegroundColor Yellow -NoNewline
-        Write-Host "Image manipulation capabilities not available." -ForegroundColor Yellow
-        Write-Host "Images will be copied as-is without resizing." -ForegroundColor Yellow
+    }
+    catch {
+        Write-Host "Note: " -ForegroundColor Yellow -NoNewline
+        Write-Host "Image conversion not available"
+        Write-Host "Images will be copied without resizing" -ForegroundColor Yellow
         Write-Host
         return $false
     }
 }
 
-# Function to convert and resize image
-function Convert-ResizeImage {
+function Convert-AndResizeImage {
     param(
         [string]$SourcePath,
-        [string]$DestinationPath,
+        [string]$DestPath,
         [int]$Width,
         [int]$Height
     )
     
-    Write-Host "Converting and resizing image..." -ForegroundColor Cyan
+    Write-Host "  Processing image..." -ForegroundColor Cyan
     
     try {
-        # Load System.Drawing assembly
-        Add-Type -AssemblyName System.Drawing
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
         
-        # Load the image from file
-        $originalImage = [System.Drawing.Image]::FromFile($SourcePath)
-        
-        # Create a new blank image with correct dimensions and white background
-        $resizedImage = New-Object System.Drawing.Bitmap($Width, $Height)
-        $graphics = [System.Drawing.Graphics]::FromImage($resizedImage)
+        $original = [System.Drawing.Image]::FromFile($SourcePath)
+        $resized = New-Object System.Drawing.Bitmap($Width, $Height)
+        $graphics = [System.Drawing.Graphics]::FromImage($resized)
         $graphics.Clear([System.Drawing.Color]::White)
         
-        # Calculate new dimensions preserving aspect ratio
-        $originalWidth = $originalImage.Width
-        $originalHeight = $originalImage.Height
-        $ratioX = $Width / $originalWidth
-        $ratioY = $Height / $originalHeight
+        # Calculate aspect ratio
+        $ratioX = $Width / $original.Width
+        $ratioY = $Height / $original.Height
         $ratio = [Math]::Min($ratioX, $ratioY)
         
-        $newWidth = [int]($originalWidth * $ratio)
-        $newHeight = [int]($originalHeight * $ratio)
-        
-        # Calculate centering position
+        $newWidth = [int]($original.Width * $ratio)
+        $newHeight = [int]($original.Height * $ratio)
         $posX = [int](($Width - $newWidth) / 2)
         $posY = [int](($Height - $newHeight) / 2)
         
-        # Draw the resized image centered on the new canvas
-        $graphics.DrawImage($originalImage, $posX, $posY, $newWidth, $newHeight)
+        $graphics.DrawImage($original, $posX, $posY, $newWidth, $newHeight)
+        $resized.Save($DestPath, [System.Drawing.Imaging.ImageFormat]::Png)
         
-        # Save the result
-        $resizedImage.Save($DestinationPath, [System.Drawing.Imaging.ImageFormat]::Png)
-        
-        # Clean up
+        # Cleanup
         $graphics.Dispose()
-        $resizedImage.Dispose()
-        $originalImage.Dispose()
+        $resized.Dispose()
+        $original.Dispose()
         
-        Write-Host "✓ Image processed successfully." -ForegroundColor Green
-    } catch {
-        Write-Host "✗ Error processing image: $_" -ForegroundColor Red
-        Write-Host "Copying file without conversion..." -ForegroundColor Yellow
-        Copy-Item -Path $SourcePath -Destination $DestinationPath
+        Write-Host "  ✓ Image converted successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  Warning: Conversion failed, copying original" -ForegroundColor Yellow
+        Copy-Item -Path $SourcePath -Destination $DestPath -Force
     }
 }
 
-# Function to select device model
 function Select-DeviceModel {
-    Write-Host "Select your reMarkable device model:" -ForegroundColor White
-    Write-Host "1. reMarkable 1" -ForegroundColor White
-    Write-Host "2. reMarkable 2" -ForegroundColor White
-    Write-Host "3. reMarkable Paper Pro" -ForegroundColor White
+    Write-Host "Select Your Device:" -ForegroundColor White
+    Write-Host
+    Write-Host "1. reMarkable 1"
+    Write-Host "2. reMarkable 2"
+    Write-Host "3. reMarkable Paper Pro"
+    Write-Host "4. reMarkable Paper Pro Move"
     Write-Host
     
-    $deviceChoice = Read-Host "Enter your choice (1-3)"
+    $choice = Read-Host "Your choice (1-4)"
     
-    switch ($deviceChoice) {
+    switch ($choice) {
         "1" {
-            Write-Host "Selected: reMarkable 1" -ForegroundColor Green
-            $script:DEVICE_WIDTH = $RM1_WIDTH
-            $script:DEVICE_HEIGHT = $RM1_HEIGHT
+            Write-Host "✓ reMarkable 1 selected" -ForegroundColor Green
+            $script:DeviceWidth = $DEVICE_RESOLUTIONS['rM1'].Width
+            $script:DeviceHeight = $DEVICE_RESOLUTIONS['rM1'].Height
         }
         "2" {
-            Write-Host "Selected: reMarkable 2" -ForegroundColor Green
-            $script:DEVICE_WIDTH = $RM2_WIDTH
-            $script:DEVICE_HEIGHT = $RM2_HEIGHT
+            Write-Host "✓ reMarkable 2 selected" -ForegroundColor Green
+            $script:DeviceWidth = $DEVICE_RESOLUTIONS['rM2'].Width
+            $script:DeviceHeight = $DEVICE_RESOLUTIONS['rM2'].Height
         }
         "3" {
-            Write-Host "Selected: reMarkable Paper Pro" -ForegroundColor Green
-            $script:DEVICE_WIDTH = $RMPRO_WIDTH
-            $script:DEVICE_HEIGHT = $RMPRO_HEIGHT
+            Write-Host "✓ reMarkable Paper Pro selected" -ForegroundColor Green
+            $script:DeviceWidth = $DEVICE_RESOLUTIONS['rMPro'].Width
+            $script:DeviceHeight = $DEVICE_RESOLUTIONS['rMPro'].Height
+        }
+        "4" {
+            Write-Host "✓ reMarkable Paper Pro Move selected" -ForegroundColor Green
+            $script:DeviceWidth = $DEVICE_RESOLUTIONS['rMProMove'].Width
+            $script:DeviceHeight = $DEVICE_RESOLUTIONS['rMProMove'].Height
         }
         default {
-            Write-Host "Invalid selection. Using reMarkable 2 dimensions by default." -ForegroundColor Yellow
-            $script:DEVICE_WIDTH = $RM2_WIDTH
-            $script:DEVICE_HEIGHT = $RM2_HEIGHT
+            Write-Host "Invalid selection, defaulting to reMarkable 2" -ForegroundColor Yellow
+            $script:DeviceWidth = $DEVICE_RESOLUTIONS['rM2'].Width
+            $script:DeviceHeight = $DEVICE_RESOLUTIONS['rM2'].Height
         }
     }
     Write-Host
 }
 
-# Function to display installation mode menu
-function Display-ModeMenu {
-    Write-Host "Choose your installation mode:" -ForegroundColor White
-    Write-Host "1. Guided Mode " -NoNewline -ForegroundColor White
-    Write-Host "(Add your own images for each background type)" -ForegroundColor Cyan
-    Write-Host "2. Manual Mode " -NoNewline -ForegroundColor White
-    Write-Host "(Upload predefined images from custom-backgrounds folder)" -ForegroundColor Cyan
-    Write-Host "3. Exit" -ForegroundColor White
+function Show-ModeMenu {
+    Write-Host "Choose Installation Mode:" -ForegroundColor White
+    Write-Host
+    Write-Host "1. Guided - Select images interactively"
+    Write-Host "2. Manual - Use pre-prepared images"
+    Write-Host "3. Exit"
     Write-Host
     
-    $script:MODE_CHOICE = Read-Host "Enter your choice (1-3)"
+    return Read-Host "Your choice (1-3)"
 }
 
-# Function to handle guided installation
+function Get-BackgroundDescription {
+    param([string]$FileName)
+    
+    $descriptions = @{
+        "batteryempty.png" = "Battery depleted screen"
+        "factory.png" = "Factory reset screen"
+        "hibernate.png" = "Deep sleep mode"
+        "overheating.png" = "Overheating warning"
+        "poweroff.png" = "Power off screen"
+        "rebooting.png" = "Reboot screen"
+        "restart-crashed.png" = "Crash recovery screen"
+        "starting.png" = "Boot/startup screen"
+        "suspended.png" = "Sleep/suspend screen"
+    }
+    
+    return $descriptions[$FileName] ?? "System background"
+}
+
 function Start-GuidedInstallation {
-    Write-Host $SEPARATOR -ForegroundColor Cyan
-    Write-Host "           Guided Wallpaper Setup" -ForegroundColor Cyan
+    Write-Host
+    Write-Host "Guided Wallpaper Setup" -ForegroundColor Cyan
     Write-Host $SEPARATOR -ForegroundColor Cyan
     Write-Host
     
-    # Select device model to set correct dimensions
     Select-DeviceModel
     
-    # Check if image manipulation is available
-    $hasImageCapabilities = Test-ImageManipulation
+    $hasImageCapabilities = Test-ImageCapabilities
     
-    # Create custom-backgrounds directory if it doesn't exist
     $customBgPath = "rm-background-manager\custom-backgrounds"
-    if (-Not (Test-Path -Path $customBgPath -PathType Container)) {
-        New-Item -Path $customBgPath -ItemType Directory | Out-Null
-        Write-Host "Created custom-backgrounds directory" -ForegroundColor Green
+    if (-Not (Test-Path $customBgPath)) {
+        New-Item -Path $customBgPath -ItemType Directory -Force | Out-Null
     }
     
-    Write-Host "For each background type, provide the path to your custom image." -ForegroundColor Yellow
-    Write-Host "You can drag and drop image files into the terminal window." -ForegroundColor Yellow
-    Write-Host "Enter 'skip' to leave any background unchanged." -ForegroundColor Yellow
+    Write-Host "Tips:" -ForegroundColor Yellow
+    Write-Host "  • Drag and drop image files into the terminal"
+    Write-Host "  • Type 'skip' to keep default background"
     if ($hasImageCapabilities) {
-        Write-Host "Images will be automatically converted to PNG and resized to fit your device." -ForegroundColor Green
+        Write-Host "  • Images will be auto-converted and resized"
     }
     Write-Host
     
-    # Process each background file
+    $addedCount = 0
     foreach ($bgFile in $BACKGROUND_FILES) {
-        Write-Host "Background type: " -NoNewline -ForegroundColor White
-        Write-Host $bgFile -ForegroundColor Cyan
-        Write-Host "Description: " -NoNewline
-        Write-Host (Get-BackgroundDescription $bgFile)
-        Write-Host "Enter path to custom image or type 'skip':"
-        $imagePath = Read-Host
+        Write-Host $bgFile -ForegroundColor White
+        Write-Host "  $(Get-BackgroundDescription $bgFile)"
+        $imagePath = Read-Host "  Image path (or 'skip')"
         
-        # Skip if user entered 'skip'
-        if ($imagePath -eq "skip") {
-            Write-Host "Skipping $bgFile" -ForegroundColor Yellow
+        if ($imagePath -eq 'skip') {
+            Write-Host "  Skipped" -ForegroundColor Yellow
             Write-Host
             continue
         }
         
-        # Remove quotes if present (happens with drag and drop on some terminals)
-        $imagePath = $imagePath -replace "[`"']", ""
+        $imagePath = $imagePath -replace '["`'']', ''
         
-        # Check if file exists
-        if (-Not (Test-Path -Path $imagePath -PathType Leaf)) {
-            Write-Host "Error: " -ForegroundColor Red -NoNewline
-            Write-Host "File not found: $imagePath" -ForegroundColor Red
-            Write-Host "Skipping this background type." -ForegroundColor Red
+        if (-Not (Test-Path $imagePath -PathType Leaf)) {
+            Write-Host "  ✗ File not found, skipping" -ForegroundColor Red
             Write-Host
             continue
         }
         
-        # Check if it's an image file
-        if ($imagePath -notmatch "\.(png|jpg|jpeg|PNG|JPG|JPEG|gif|GIF|bmp|BMP|tiff|TIFF)$") {
-            Write-Host "Error: " -ForegroundColor Red -NoNewline
-            Write-Host "Not an image file: $imagePath" -ForegroundColor Red
-            Write-Host "Please provide a supported image file." -ForegroundColor Red
-            Write-Host "Skipping this background type." -ForegroundColor Red
+        if ($imagePath -notmatch '\.(png|jpg|jpeg|gif|bmp|tiff)$') {
+            Write-Host "  ✗ Not a supported image format, skipping" -ForegroundColor Red
             Write-Host
             continue
         }
         
-        # Destination file path
-        $destFile = "$customBgPath\$bgFile"
+        $destFile = Join-Path $customBgPath $bgFile
         
-        # Convert and resize image if possible, otherwise just copy
         if ($hasImageCapabilities) {
-            Convert-ResizeImage -SourcePath $imagePath -DestinationPath $destFile -Width $DEVICE_WIDTH -Height $DEVICE_HEIGHT
-        } else {
-            # Just copy the file if image manipulation is not available
-            Copy-Item -Path $imagePath -Destination $destFile
+            Convert-AndResizeImage -SourcePath $imagePath -DestPath $destFile -Width $script:DeviceWidth -Height $script:DeviceHeight
+        }
+        else {
+            Copy-Item -Path $imagePath -Destination $destFile -Force
         }
         
-        Write-Host "✓ Added custom image for $bgFile" -ForegroundColor Green
+        Write-Host "  ✓ Added $bgFile" -ForegroundColor Green
         Write-Host
+        $addedCount++
     }
     
-    Write-Host "✓ Success! " -ForegroundColor Green -NoNewline
-    Write-Host "Custom backgrounds have been prepared." -ForegroundColor Green
-    Write-Host "Now proceeding to copy files to your reMarkable tablet..." -ForegroundColor Yellow
-    Write-Host
-}
-
-# Function to get description of each background type
-function Get-BackgroundDescription {
-    param(
-        [string]$fileName
-    )
-    
-    switch ($fileName) {
-        "batteryempty.png" { "Shown when battery is completely depleted" }
-        "factory.png" { "Factory reset screen" }
-        "hibernate.png" { "Shown when device enters deep sleep mode" }
-        "overheating.png" { "Warning screen when device overheats" }
-        "poweroff.png" { "Shown when device is powering off" }
-        "rebooting.png" { "Displayed during reboot process" }
-        "restart-crashed.png" { "Shown after a system crash" }
-        "starting.png" { "Boot/startup screen" }
-        "suspended.png" { "Sleep/suspend mode screen" }
-        default { "System background image" }
-    }
-}
-
-# Important information section
-Write-Host "IMPORTANT:" -ForegroundColor Yellow
-Write-Host "• If you are using a reMarkable Paper Pro, you must enable developer mode:" -ForegroundColor Yellow
-Write-Host "  https://support.remarkable.com/s/article/Developer-mode" -ForegroundColor Cyan
-Write-Host "• On reMarkable 2 or Paper Pro, please enable full device encryption:" -ForegroundColor Yellow
-Write-Host "  Settings > Security > Data Protection > Security Level" -ForegroundColor Yellow
-Write-Host
-
-Write-Host $SEPARATOR -ForegroundColor Cyan
-Write-Host "                Installation Process" -ForegroundColor Cyan
-Write-Host $SEPARATOR -ForegroundColor Cyan
-Write-Host
-
-# Check if rm-background-manager folder exists
-if (-Not (Test-Path -Path "rm-background-manager" -PathType Container)) {
-    Write-Host "Error: " -ForegroundColor Red -NoNewline
-    Write-Host "rm-background-manager folder not found in current directory." -ForegroundColor Red
-    Write-Host "Please redownload the repository from GitHub and run the start script again." -ForegroundColor Red
-    exit 1
-}
-
-# Display mode menu and get user's choice
-Display-ModeMenu
-
-switch ($MODE_CHOICE) {
-    "1" {
-        # Guided Mode
-        Start-GuidedInstallation
-    }
-    "2" {
-        # Manual Mode - continue with original flow
-        Write-Host "Proceeding with manual installation using existing files..." -ForegroundColor Yellow
-        Write-Host
-    }
-    "3" {
-        Write-Host "Exiting program." -ForegroundColor Cyan
+    if ($addedCount -eq 0) {
+        Write-Host "No images added. Please prepare images manually." -ForegroundColor Yellow
         exit 0
     }
-    default {
-        Write-Host "Error: " -ForegroundColor Red -NoNewline
-        Write-Host "Invalid option. Using Manual Mode by default." -ForegroundColor Red
-        Write-Host
-    }
+    
+    Write-Host "✓ Prepared $addedCount custom background(s)" -ForegroundColor Green
+    Write-Host
 }
 
-# Get the IP address of the reMarkable
-Write-Host "Step 1: " -NoNewline
-Write-Host "Enter your device information"
-$REMARKABLE_IP = Read-Host "Enter your reMarkable's IP address"
-
-# Copy files to the reMarkable
-Write-Host
-Write-Host "Step 2: " -NoNewline
-Write-Host "Copying files to your reMarkable tablet..."
-Write-Host "Note: " -ForegroundColor Yellow -NoNewline
-Write-Host "You'll need to enter the password when prompted (found in your device's settings)."
-
-try {
-    # Using pscp.exe (PuTTY SCP) which should be installed separately
-    # Alternatively, users can install OpenSSH client feature in Windows 10/11
-    $copySuccessful = $false
-    
-    if (Get-Command pscp.exe -ErrorAction SilentlyContinue) {
-        try {
-            pscp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
-            $copySuccessful = $true
-        } catch {
-            # Check if error message contains SSH key related errors
-            if ($_.Exception.Message -match "key does not match|host key verification failed") {
-                Write-Host "✗ SSH Key Error Detected: " -ForegroundColor Red -NoNewline
-                Write-Host "Attempting to fix..." -ForegroundColor Red
-                
-                # Try to remove the old SSH key
-                if (Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue) {
-                    ssh-keygen.exe -R $REMARKABLE_IP
-                    Write-Host "Old SSH key removed. Retrying file copy..." -ForegroundColor Yellow
-                    
-                    # Retry the copy operation
-                    pscp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
-                    $copySuccessful = $true
-                } else {
-                    throw "SSH key error detected but ssh-keygen.exe not found. Please remove the key manually."
-                }
-            } else {
-                throw  # Re-throw the original exception
-            }
-        }
-    } elseif (Get-Command scp.exe -ErrorAction SilentlyContinue) {
-        try {
-            scp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
-            $copySuccessful = $true
-        } catch {
-            # Check if error message contains SSH key related errors
-            if ($_.Exception.Message -match "key does not match|host key verification failed") {
-                Write-Host "✗ SSH Key Error Detected: " -ForegroundColor Red -NoNewline
-                Write-Host "Attempting to fix..." -ForegroundColor Red
-                
-                # Try to remove the old SSH key
-                if (Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue) {
-                    ssh-keygen.exe -R $REMARKABLE_IP
-                    Write-Host "Old SSH key removed. Retrying file copy..." -ForegroundColor Yellow
-                    
-                    # Retry the copy operation
-                    scp.exe -r rm-background-manager root@${REMARKABLE_IP}:/home/root/
-                    $copySuccessful = $true
-                } else {
-                    throw "SSH key error detected but ssh-keygen.exe not found. Please remove the key manually."
-                }
-            } else {
-                throw  # Re-throw the original exception
-            }
-        }
-    } else {
-        throw "Neither pscp.exe nor scp.exe was found. Please install PuTTY or OpenSSH Client."
-    }
+function Copy-ToReMarkable {
+    param([string]$IpAddress)
     
     Write-Host
-    if ($copySuccessful) {
-        Write-Host "✓ Success! " -ForegroundColor Green -NoNewline
-        Write-Host "rm-background-manager has been installed to your reMarkable." -ForegroundColor Green
-        Write-Host "Automatically connecting to your device using SSH..." -ForegroundColor Green
-        Write-Host "Once connected, you can:" -ForegroundColor Yellow
-        Write-Host "  • Navigate to the folder:" -ForegroundColor Yellow -NoNewline
-        Write-Host " cd /home/root/rm-background-manager" -ForegroundColor White
-        Write-Host "  • Run the application:" -ForegroundColor Yellow -NoNewline
-        Write-Host " bash wallpaper-manager.sh" -ForegroundColor White
-        Write-Host
-        Write-Host $SEPARATOR -ForegroundColor Cyan
-        Write-Host "             Connecting to reMarkable..." -ForegroundColor Cyan
-        Write-Host $SEPARATOR -ForegroundColor Cyan
-        Write-Host
+    Write-Host "Copying files to reMarkable..." -ForegroundColor White
+    Write-Host "Enter your SSH password when prompted" -ForegroundColor Yellow
+    Write-Host "(Find it in: Settings → Copyrights and licenses → GPLv3)" -ForegroundColor Yellow
+    Write-Host
+    
+    $scpCommand = $null
+    if (Get-Command scp.exe -ErrorAction SilentlyContinue) {
+        $scpCommand = "scp.exe"
+    }
+    elseif (Get-Command pscp.exe -ErrorAction SilentlyContinue) {
+        $scpCommand = "pscp.exe"
+    }
+    else {
+        throw "No SCP client found. Please install OpenSSH Client or PuTTY."
+    }
+    
+    try {
+        $process = Start-Process -FilePath $scpCommand -ArgumentList "-r", "rm-background-manager", "root@${IpAddress}:/home/root/" -Wait -NoNewWindow -PassThru
         
-        # Connect via SSH
-        if (Get-Command ssh.exe -ErrorAction SilentlyContinue) {
-            ssh.exe root@$REMARKABLE_IP
-        } elseif (Get-Command plink.exe -ErrorAction SilentlyContinue) {
-            plink.exe -ssh root@$REMARKABLE_IP
-        } else {
-            Write-Host "✗ Warning: " -ForegroundColor Yellow -NoNewline
-            Write-Host "SSH client not found (ssh.exe or plink.exe)." -ForegroundColor Yellow
-            Write-Host "Please connect manually using an SSH client with:" -ForegroundColor Yellow
-            Write-Host "  Host: root@$REMARKABLE_IP" -ForegroundColor White
+        if ($process.ExitCode -eq 0) {
+            return $true
         }
-    } else {
-        throw "File copy operation failed."
     }
-} catch {
-    Write-Host
-    Write-Host "✗ Error: " -ForegroundColor Red -NoNewline
-    Write-Host "Failed to copy files to the reMarkable." -ForegroundColor Red
-    Write-Host "Please check the IP address and make sure your tablet is connected to your computer." -ForegroundColor Red
-    Write-Host "Technical error: $_" -ForegroundColor Red
+    catch {
+        # Try to fix SSH key issue
+        Write-Host "Fixing SSH key issue..." -ForegroundColor Yellow
+        if (Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue) {
+            ssh-keygen.exe -R $IpAddress 2>&1 | Out-Null
+            
+            $process = Start-Process -FilePath $scpCommand -ArgumentList "-r", "rm-background-manager", "root@${IpAddress}:/home/root/" -Wait -NoNewWindow -PassThru
+            
+            return ($process.ExitCode -eq 0)
+        }
+    }
+    
+    return $false
 }
+
+function Connect-ToReMarkable {
+    param([string]$IpAddress)
+    
+    Write-Host
+    Write-Host "✓ Files copied successfully!" -ForegroundColor Green
+    Write-Host
+    Write-Host $SEPARATOR -ForegroundColor Cyan
+    Write-Host "Next Steps" -ForegroundColor Cyan
+    Write-Host $SEPARATOR -ForegroundColor Cyan
+    Write-Host
+    Write-Host "Once connected to your reMarkable:"
+    Write-Host "  1. cd /home/root/rm-background-manager"
+    Write-Host "  2. bash wallpaper-manager.sh"
+    Write-Host
+    Write-Host "Connecting via SSH..." -ForegroundColor White
+    Write-Host
+    
+    if (Get-Command ssh.exe -ErrorAction SilentlyContinue) {
+        ssh.exe "root@$IpAddress"
+    }
+    elseif (Get-Command plink.exe -ErrorAction SilentlyContinue) {
+        plink.exe -ssh "root@$IpAddress"
+    }
+    else {
+        Write-Host "Warning: No SSH client found" -ForegroundColor Yellow
+        Write-Host "Please connect manually to: root@$IpAddress" -ForegroundColor Yellow
+    }
+}
+
+# Main execution
+function Main {
+    Show-Header
+    Show-ImportantInfo
+    Test-Prerequisites
+    
+    $modeChoice = Show-ModeMenu
+    
+    switch ($modeChoice) {
+        "1" {
+            Start-GuidedInstallation
+        }
+        "2" {
+            Write-Host "Using manual mode with existing files" -ForegroundColor Cyan
+            Write-Host
+        }
+        "3" {
+            Write-Host "Goodbye!" -ForegroundColor Cyan
+            exit 0
+        }
+        default {
+            Write-Host "Invalid option, defaulting to manual mode" -ForegroundColor Yellow
+            Write-Host
+        }
+    }
+    
+    $remarkableIp = Read-Host "Enter your reMarkable's IP address"
+    
+    if (Copy-ToReMarkable -IpAddress $remarkableIp) {
+        Connect-ToReMarkable -IpAddress $remarkableIp
+    }
+    else {
+        Write-Host
+        Write-Host "✗ Failed to copy files" -ForegroundColor Red
+        Write-Host "Check your IP address and device connection" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Run the script
+Main

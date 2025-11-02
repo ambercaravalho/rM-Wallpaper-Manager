@@ -1,7 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# reMarkable Wallpaper Manager installer script
-# Copies rm-background-manager folder to remote reMarkable tablet
+# reMarkable Wallpaper Manager - Installation Script
+# Copies wallpaper manager to your reMarkable tablet
+# For updates: https://github.com/ambercaravalho/rM-Wallpaper-Manager
+
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 # Color and formatting definitions
 BOLD="\033[1m"
@@ -12,35 +15,32 @@ RED="\033[0;31m"
 RESET="\033[0m"
 SEPARATOR="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Welcome header
-echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-echo -e "${BOLD}${BLUE}        reMarkable Wallpaper Manager Installer${RESET}"
-echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-echo
-echo -e "Welcome to ${BOLD}reMarkable Wallpaper Manager!${RESET}"
-echo -e "For updates and more information, visit:"
-echo -e "${BLUE}https://github.com/ambercaravalho/rM-Wallpaper-Manager${RESET}"
-echo
+# Functions
+show_header() {
+    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo -e "${BOLD}${BLUE}    reMarkable Wallpaper Manager${RESET}"
+    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo
+}
 
-# Important information section
-echo -e "${YELLOW}${BOLD}IMPORTANT:${RESET}"
-echo -e "${YELLOW}• If you are using a reMarkable Paper Pro, you must enable developer mode:${RESET}"
-echo -e "  ${BLUE}https://support.remarkable.com/s/article/Developer-mode${RESET}"
-echo -e "${YELLOW}• On reMarkable 2 or Paper Pro, please enable full device encryption:${RESET}"
-echo -e "  ${YELLOW}Settings > Security > Data Protection > Security Level${RESET}"
-echo
+show_important_info() {
+    echo -e "${YELLOW}${BOLD}Before You Start:${RESET}"
+    echo
+    echo -e "${YELLOW}Paper Pro users:${RESET} Enable developer mode first"
+    echo -e "  ${BLUE}→ https://support.remarkable.com/s/article/Developer-mode${RESET}"
+    echo
+    echo -e "${YELLOW}Security recommendation:${RESET} Enable device encryption"
+    echo -e "  Settings → Security → Data Protection"
+    echo
+}
 
-echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-echo -e "${BOLD}${BLUE}                Installation Process${RESET}"
-echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-echo
-
-# Check if rm-background-manager folder exists
-if [ ! -d "rm-background-manager" ]; then
-    echo -e "${RED}${BOLD}Error:${RESET} ${RED}rm-background-manager folder not found in current directory.${RESET}"
-    echo -e "${RED}Please redownload the repository from GitHub and run the start script again.${RESET}"
-    exit 1
-fi
+check_prerequisites() {
+    if [[ ! -d "rm-background-manager" ]]; then
+        echo -e "${RED}${BOLD}✗ Error:${RESET} Missing rm-background-manager folder${RESET}"
+        echo -e "${RED}  Please run this script from the repository root directory${RESET}"
+        exit 1
+    fi
+}
 
 # List of background files
 BACKGROUND_FILES=(
@@ -62,20 +62,23 @@ RM2_WIDTH=1404
 RM2_HEIGHT=1872
 RMPRO_WIDTH=1872
 RMPRO_HEIGHT=2404
+RMPRO_MOVE_WIDTH=1696
+RMPRO_MOVE_HEIGHT=954
 
 # Function to check if ImageMagick is installed
 check_imagemagick() {
-    if ! command -v convert >/dev/null 2>&1; then
-        echo -e "${YELLOW}${BOLD}Warning:${RESET} ${YELLOW}ImageMagick is not installed.${RESET}"
-        echo -e "${YELLOW}Without ImageMagick, images cannot be automatically converted or resized.${RESET}"
-        echo -e "${YELLOW}Please install ImageMagick for the best experience:${RESET}"
+    if ! command -v convert &>/dev/null; then
+        echo -e "${YELLOW}${BOLD}Note:${RESET} ImageMagick not found${RESET}"
+        echo -e "${YELLOW}Images won't be automatically converted/resized${RESET}"
+        echo
+        echo -e "To install ImageMagick:"
         echo -e "  ${BLUE}macOS:${RESET} brew install imagemagick"
         echo -e "  ${BLUE}Linux:${RESET} sudo apt-get install imagemagick"
         echo
-        read -p "Continue without image conversion? (y/n): " CONTINUE
-        if [[ $CONTINUE != "y" && $CONTINUE != "Y" ]]; then
-            echo -e "${RED}Installation aborted.${RESET}"
-            exit 1
+        read -rp "Continue anyway? (y/N): " CONTINUE
+        if [[ ! "${CONTINUE,,}" =~ ^(y|yes)$ ]]; then
+            echo -e "${BLUE}Installation cancelled${RESET}"
+            exit 0
         fi
         return 1
     fi
@@ -89,59 +92,68 @@ convert_and_resize_image() {
     local device_width="$3"
     local device_height="$4"
     
-    if ! check_imagemagick; then
-        # Just copy the file if ImageMagick is not available
+    if ! command -v convert &>/dev/null; then
         cp "$source" "$destination"
         return
     fi
     
-    echo -e "${BLUE}Converting and resizing image...${RESET}"
+    echo -e "${BLUE}  Processing image...${RESET}"
     
-    # Convert to PNG and resize while maintaining aspect ratio
-    convert "$source" -resize "${device_width}x${device_height}" \
+    if convert "$source" -resize "${device_width}x${device_height}" \
         -background white -gravity center -extent "${device_width}x${device_height}" \
-        "$destination"
-        
-    echo -e "${GREEN}Image processed successfully.${RESET}"
+        "$destination" 2>/dev/null; then
+        echo -e "${GREEN}  ✓ Image converted successfully${RESET}"
+    else
+        echo -e "${YELLOW}  Warning: Conversion failed, copying original${RESET}"
+        cp "$source" "$destination"
+    fi
 }
 
 # Function to display installation mode menu
 display_mode_menu() {
-    echo -e "${BOLD}Choose your installation mode:${RESET}"
-    echo -e "${BOLD}1.${RESET} Guided Mode ${BLUE}(Add your own images for each background type)${RESET}"
-    echo -e "${BOLD}2.${RESET} Manual Mode ${BLUE}(Upload predefined images from custom-backgrounds folder)${RESET}"
+    echo -e "${BOLD}Choose Installation Mode:${RESET}"
+    echo
+    echo -e "${BOLD}1.${RESET} Guided - Select images interactively"
+    echo -e "${BOLD}2.${RESET} Manual - Use pre-prepared images"
     echo -e "${BOLD}3.${RESET} Exit"
     echo
-    read -p "Enter your choice (1-3): " MODE_CHOICE
+    read -rp "Your choice (1-3): " MODE_CHOICE
 }
 
 # Function to select device model
 select_device_model() {
-    echo -e "${BOLD}Select your reMarkable device model:${RESET}"
+    echo -e "${BOLD}Select Your Device:${RESET}"
+    echo
     echo -e "${BOLD}1.${RESET} reMarkable 1"
     echo -e "${BOLD}2.${RESET} reMarkable 2"
     echo -e "${BOLD}3.${RESET} reMarkable Paper Pro"
+    echo -e "${BOLD}4.${RESET} reMarkable Paper Pro Move"
     echo
-    read -p "Enter your choice (1-3): " DEVICE_CHOICE
+    read -rp "Your choice (1-4): " DEVICE_CHOICE
     
     case "$DEVICE_CHOICE" in
-        "1")
-            echo -e "${GREEN}Selected: reMarkable 1${RESET}"
+        1)
+            echo -e "${GREEN}✓ reMarkable 1 selected${RESET}"
             DEVICE_WIDTH=$RM1_WIDTH
             DEVICE_HEIGHT=$RM1_HEIGHT
             ;;
-        "2")
-            echo -e "${GREEN}Selected: reMarkable 2${RESET}"
+        2)
+            echo -e "${GREEN}✓ reMarkable 2 selected${RESET}"
             DEVICE_WIDTH=$RM2_WIDTH
             DEVICE_HEIGHT=$RM2_HEIGHT
             ;;
-        "3")
-            echo -e "${GREEN}Selected: reMarkable Paper Pro${RESET}"
+        3)
+            echo -e "${GREEN}✓ reMarkable Paper Pro selected${RESET}"
             DEVICE_WIDTH=$RMPRO_WIDTH
             DEVICE_HEIGHT=$RMPRO_HEIGHT
             ;;
+        4)
+            echo -e "${GREEN}✓ reMarkable Paper Pro Move selected${RESET}"
+            DEVICE_WIDTH=$RMPRO_MOVE_WIDTH
+            DEVICE_HEIGHT=$RMPRO_MOVE_HEIGHT
+            ;;
         *)
-            echo -e "${YELLOW}Invalid selection. Using reMarkable 2 dimensions by default.${RESET}"
+            echo -e "${YELLOW}Invalid selection, defaulting to reMarkable 2${RESET}"
             DEVICE_WIDTH=$RM2_WIDTH
             DEVICE_HEIGHT=$RM2_HEIGHT
             ;;
@@ -151,83 +163,56 @@ select_device_model() {
 
 # Function to handle guided installation
 guided_installation() {
-    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-    echo -e "${BOLD}${BLUE}           Guided Wallpaper Setup${RESET}"
-    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
+    echo
+    echo -e "${BOLD}${BLUE}Guided Wallpaper Setup${RESET}"
+    echo -e "${BLUE}$SEPARATOR${RESET}"
     echo
     
-    # Select device model to set correct dimensions
     select_device_model
     
-    # Check for ImageMagick
-    HAS_IMAGEMAGICK=true
-    check_imagemagick || HAS_IMAGEMAGICK=false
+    local has_imagemagick=false
+    check_imagemagick && has_imagemagick=true
     
-    # Create custom-backgrounds directory if it doesn't exist
-    if [ ! -d "rm-background-manager/custom-backgrounds" ]; then
-        mkdir -p "rm-background-manager/custom-backgrounds"
-        echo -e "${GREEN}Created custom-backgrounds directory${RESET}"
-    fi
+    mkdir -p "rm-background-manager/custom-backgrounds"
     
-    echo -e "${YELLOW}For each background type, provide the path to your custom image.${RESET}"
-    echo -e "${YELLOW}You can drag and drop image files into the terminal window.${RESET}"
-    echo -e "${YELLOW}Enter 'skip' to leave any background unchanged.${RESET}"
-    if [ "$HAS_IMAGEMAGICK" = true ]; then
-        echo -e "${GREEN}Images will be automatically converted to PNG and resized to fit your device.${RESET}"
-    fi
+    echo -e "${YELLOW}Tips:${RESET}"
+    echo -e "  • Drag and drop image files into the terminal"
+    echo -e "  • Type 'skip' to keep default background"
+    [[ "$has_imagemagick" == true ]] && echo -e "  • Images will be auto-converted and resized"
     echo
     
-    # Process each background file
+    local added_count=0
     for bg_file in "${BACKGROUND_FILES[@]}"; do
-        echo -e "${BOLD}Background type:${RESET} ${BLUE}$bg_file${RESET}"
-        echo -e "Description: $(get_description "$bg_file")"
-        echo -e "Enter path to custom image or type 'skip':"
-        read -r IMAGE_PATH
+        echo -e "${BOLD}${bg_file}${RESET}"
+        echo -e "  $(get_description "$bg_file")"
+        read -rp "  Image path (or 'skip'): " IMAGE_PATH
         
-        # Skip if user entered 'skip'
-        if [ "$IMAGE_PATH" = "skip" ]; then
-            echo -e "${YELLOW}Skipping $bg_file${RESET}"
-            echo
+        [[ "${IMAGE_PATH,,}" == "skip" ]] && { echo -e "${YELLOW}  Skipped${RESET}\n"; continue; }
+        
+        IMAGE_PATH="${IMAGE_PATH//[\'\"]}"  # Remove quotes
+        
+        if [[ ! -f "$IMAGE_PATH" ]]; then
+            echo -e "${RED}  ✗ File not found, skipping${RESET}\n"
             continue
         fi
         
-        # Remove quotes if present (happens with drag and drop on some terminals)
-        IMAGE_PATH=$(echo "$IMAGE_PATH" | tr -d "'\"")
-        
-        # Check if file exists
-        if [ ! -f "$IMAGE_PATH" ]; then
-            echo -e "${RED}${BOLD}Error:${RESET} ${RED}File not found: $IMAGE_PATH${RESET}"
-            echo -e "${RED}Skipping this background type.${RESET}"
-            echo
+        if [[ ! "$IMAGE_PATH" =~ \.(png|jpg|jpeg|gif|bmp|tiff)$ ]]; then
+            echo -e "${RED}  ✗ Not a supported image format, skipping${RESET}\n"
             continue
         fi
         
-        # Check if it's an image file
-        if [[ ! "$IMAGE_PATH" =~ \.(png|jpg|jpeg|PNG|JPG|JPEG|gif|GIF|bmp|BMP|tiff|TIFF)$ ]]; then
-            echo -e "${RED}${BOLD}Error:${RESET} ${RED}Not a supported image file: $IMAGE_PATH${RESET}"
-            echo -e "${RED}Please provide a supported image format.${RESET}"
-            echo -e "${RED}Skipping this background type.${RESET}"
-            echo
-            continue
-        fi
-        
-        # Destination file path
-        DEST_FILE="rm-background-manager/custom-backgrounds/$bg_file"
-        
-        # Convert and resize image
-        if [ "$HAS_IMAGEMAGICK" = true ]; then
-            convert_and_resize_image "$IMAGE_PATH" "$DEST_FILE" "$DEVICE_WIDTH" "$DEVICE_HEIGHT"
-        else
-            # Just copy the file if ImageMagick is not available
-            cp "$IMAGE_PATH" "$DEST_FILE"
-        fi
-        
-        echo -e "${GREEN}${BOLD}✓${RESET} ${GREEN}Added custom image for $bg_file${RESET}"
-        echo
+        local dest_file="rm-background-manager/custom-backgrounds/$bg_file"
+        convert_and_resize_image "$IMAGE_PATH" "$dest_file" "$DEVICE_WIDTH" "$DEVICE_HEIGHT"
+        echo -e "${GREEN}  ✓ Added $bg_file${RESET}\n"
+        ((added_count++))
     done
     
-    echo -e "${GREEN}${BOLD}✓ Success!${RESET} ${GREEN}Custom backgrounds have been prepared.${RESET}"
-    echo -e "${YELLOW}Now proceeding to copy files to your reMarkable tablet...${RESET}"
+    if [[ $added_count -eq 0 ]]; then
+        echo -e "${YELLOW}No images added. Please prepare images manually.${RESET}"
+        exit 0
+    fi
+    
+    echo -e "${GREEN}✓ Prepared $added_count custom background(s)${RESET}"
     echo
 }
 
@@ -235,77 +220,99 @@ guided_installation() {
 get_description() {
     local file="$1"
     case "$file" in
-        "batteryempty.png") echo "Shown when battery is completely depleted" ;;
-        "factory.png") echo "Factory reset screen" ;;
-        "hibernate.png") echo "Shown when device enters deep sleep mode" ;;
-        "overheating.png") echo "Warning screen when device overheats" ;;
-        "poweroff.png") echo "Shown when device is powering off" ;;
-        "rebooting.png") echo "Displayed during reboot process" ;;
-        "restart-crashed.png") echo "Shown after a system crash" ;;
-        "starting.png") echo "Boot/startup screen" ;;
-        "suspended.png") echo "Sleep/suspend mode screen" ;;
-        *) echo "System background image" ;;
+        batteryempty.png) echo "Battery depleted screen" ;;
+        factory.png) echo "Factory reset screen" ;;
+        hibernate.png) echo "Deep sleep mode" ;;
+        overheating.png) echo "Overheating warning" ;;
+        poweroff.png) echo "Power off screen" ;;
+        rebooting.png) echo "Reboot screen" ;;
+        restart-crashed.png) echo "Crash recovery screen" ;;
+        starting.png) echo "Boot/startup screen" ;;
+        suspended.png) echo "Sleep/suspend screen" ;;
+        *) echo "System background" ;;
     esac
 }
 
-# Display mode menu and get user's choice
-display_mode_menu
-
-case "$MODE_CHOICE" in
-    "1")
-        # Guided Mode
-        guided_installation
-        ;;
-    "2")
-        # Manual Mode - continue with original flow
-        echo -e "${YELLOW}Proceeding with manual installation using existing files...${RESET}"
-        echo
-        ;;
-    "3")
-        echo -e "${BLUE}Exiting program.${RESET}"
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}${BOLD}Error:${RESET} ${RED}Invalid option. Using Manual Mode by default.${RESET}"
-        echo
-        ;;
-esac
-
-# Get the IP address of the reMarkable
-echo -e "${BOLD}Step 1:${RESET} Enter your device information"
-read -p "Enter your reMarkable's IP address: " REMARKABLE_IP
-
-# Copy files to the reMarkable
-echo
-echo -e "${BOLD}Step 2:${RESET} Copying files to your reMarkable tablet..."
-echo -e "${YELLOW}Note:${RESET} You'll need to enter the password when prompted (found in your device's settings)."
-
-scp -r rm-background-manager root@$REMARKABLE_IP:/home/root/
-if [ $? -ne 0 ]; then
-    echo -e "${RED}${BOLD}✗ SSH Key Error Detected:${RESET} ${RED}Attempting to fix...${RESET}"
-    ssh-keygen -R $REMARKABLE_IP
-    echo -e "${YELLOW}Old SSH key removed. Retrying file copy...${RESET}"
-    scp -r rm-background-manager root@$REMARKABLE_IP:/home/root/
-fi
-
-# Check if the copy operation was successful
-if [ $? -eq 0 ]; then
+copy_to_remarkable() {
+    local ip="$1"
+    
     echo
-    echo -e "${GREEN}${BOLD}✓ Success!${RESET} ${GREEN}rm-background-manager has been installed to your reMarkable.${RESET}"
-    echo -e "${GREEN}Automatically connecting to your device using SSH...${RESET}"
-    echo -e "${YELLOW}Once connected, you can:${RESET}"
-    echo -e "  ${YELLOW}• Navigate to the folder:${RESET} cd /home/root/rm-background-manager"
-    echo -e "  ${YELLOW}• Run the application:${RESET} bash wallpaper-manager.sh"
+    echo -e "${BOLD}Copying files to reMarkable...${RESET}"
+    echo -e "${YELLOW}Enter your SSH password when prompted${RESET}"
+    echo -e "${YELLOW}(Find it in: Settings → Copyrights and licenses → GPLv3)${RESET}"
+    echo
+    
+    if scp -r rm-background-manager "root@${ip}:/home/root/" 2>/dev/null; then
+        return 0
+    fi
+    
+    # SSH key error - try to fix
+    echo -e "${YELLOW}Fixing SSH key issue...${RESET}"
+    ssh-keygen -R "$ip" &>/dev/null
+    
+    if scp -r rm-background-manager "root@${ip}:/home/root/" 2>/dev/null; then
+        return 0
+    fi
+    
+    return 1
+}
+
+connect_to_remarkable() {
+    local ip="$1"
+    
+    echo
+    echo -e "${GREEN}✓ Files copied successfully!${RESET}"
     echo
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-    echo -e "${BOLD}${BLUE}             Connecting to reMarkable...${RESET}"
+    echo -e "${BOLD}${BLUE}Next Steps${RESET}"
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo
-
-    # Connect via SSH
-    ssh root@$REMARKABLE_IP
-else
+    echo -e "Once connected to your reMarkable:"
+    echo -e "  ${BOLD}1.${RESET} cd /home/root/rm-background-manager"
+    echo -e "  ${BOLD}2.${RESET} bash wallpaper-manager.sh"
     echo
-    echo -e "${RED}${BOLD}✗ Error:${RESET} ${RED}Failed to copy files to the reMarkable.${RESET}"
-    echo -e "${RED}Please check the IP address and make sure your tablet is connected to your computer.${RESET}"
-fi
+    echo -e "${BOLD}Connecting via SSH...${RESET}"
+    echo
+    
+    ssh "root@${ip}"
+}
+
+# Main execution
+main() {
+    show_header
+    show_important_info
+    check_prerequisites
+    
+    display_mode_menu
+    
+    case "$MODE_CHOICE" in
+        1)
+            guided_installation
+            ;;
+        2)
+            echo -e "${BLUE}Using manual mode with existing files${RESET}"
+            echo
+            ;;
+        3)
+            echo -e "${BLUE}Goodbye!${RESET}"
+            exit 0
+            ;;
+        *)
+            echo -e "${YELLOW}Invalid option, defaulting to manual mode${RESET}"
+            echo
+            ;;
+    esac
+    
+    read -rp "Enter your reMarkable's IP address: " REMARKABLE_IP
+    
+    if copy_to_remarkable "$REMARKABLE_IP"; then
+        connect_to_remarkable "$REMARKABLE_IP"
+    else
+        echo
+        echo -e "${RED}✗ Failed to copy files${RESET}"
+        echo -e "${RED}Check your IP address and device connection${RESET}"
+        exit 1
+    fi
+}
+
+main
