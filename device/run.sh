@@ -13,8 +13,10 @@ RED="\033[0;31m"
 RESET="\033[0m"
 SEPARATOR="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-REMARKABLE_DIR="/usr/share/remarkable"
+REMARKABLE_BG_DIR="/usr/share/remarkable"
+REMARKABLE_CAROUSELS_DIR="/usr/share/remarkable/carousel"
 CUSTOM_BACKGROUNDS_DIR="./bg"
+CUSTOM_CAROUSELS_DIR="./carousel"
 FILES=(
     "batteryempty.png" "factory.png" "overheating.png"
     "poweroff.png" "remotewipe.png" "rebooting.png"
@@ -35,15 +37,21 @@ show_menu() {
 }
 
 check_directories() {
-    if [[ ! -d "$REMARKABLE_DIR" ]]; then
-        echo -e "${RED}✗ error: $REMARKABLE_DIR not found!${RESET}"
-        echo -e "${RED}system files may have changed after update${RESET}"
+    if [[ ! -d "$REMARKABLE_BG_DIR" ]]; then
+        echo -e "${RED}✗ error: $REMARKABLE_BG_DIR not found!${RESET}"
+        echo -e "${RED}system files may have changed after update, quitting${RESET}"
         exit 1
     fi
     
     if [[ ! -d "$CUSTOM_BACKGROUNDS_DIR" ]]; then
         echo -e "${RED}✗ error: $CUSTOM_BACKGROUNDS_DIR not found!${RESET}"
-        echo -e "${RED}ensure that folder is in the same directory as this script${RESET}"
+        echo -e "${RED}ensure that folder is in the same directory as this script, quitting${RESET}"
+        exit 1
+    fi
+
+    if [[ ! -d "$CUSTOM_CAROUSELS_DIR" ]]; then
+        echo -e "${RED}✗ error: $CUSTOM_CAROUSELS_DIR not found!${RESET}"
+        echo -e "${RED}ensure that folder is in the same directory as this script, quitting${RESET}"
         exit 1
     fi
 }
@@ -64,41 +72,83 @@ show_warning() {
 }
 
 install_wallpapers() {
-    echo
-    echo -e "${BOLD}${BLUE}installing custom wallpapers${RESET}"
-    echo
-    
     local missing_files=0
     local installed_files=0
-    
-    for file in "${FILES[@]}"; do
-        if [[ ! -f "$CUSTOM_BACKGROUNDS_DIR/$file" ]]; then
-            echo -e "  ${YELLOW}⚠ skipping $file (not found)${RESET}"
-            ((missing_files++))
-            continue
-        fi
-        
-        if [[ -f "$REMARKABLE_DIR/$file" && ! -f "$REMARKABLE_DIR/$file.bak" ]]; then
-            mv "$REMARKABLE_DIR/$file" "$REMARKABLE_DIR/$file.bak"
-            echo -e "  ${GREEN}✓ backed up $file${RESET}"
-        elif [[ -f "$REMARKABLE_DIR/$file.bak" ]]; then
-            echo -e "  ${YELLOW}⚠ backup for $file already exists${RESET}"
-        fi
-        
-        cp "$CUSTOM_BACKGROUNDS_DIR/$file" "$REMARKABLE_DIR/$file"
-        echo -e "  ${GREEN}✓ installed $file${RESET}"
-        ((installed_files++))
-    done
-    
+
     echo
-    if [[ $missing_files -gt 0 ]]; then
-        echo -e "${YELLOW}note: $missing_files file(s) were skipped${RESET}"
-    fi
+    echo -e "${BOLD}would you like to install wallpapers / sleep screens?${RESET}"
+    read -rp "please choose (y/N): " WALLPAPER_CHOICE
     
-    if [[ $installed_files -gt 0 ]]; then
-        echo -e "${GREEN}✓ installed $installed_files wallpaper(s)${RESET}"
-    else
-        echo -e "${YELLOW}no wallpapers were installed${RESET}"
+    if [[ "$(echo "$WALLPAPER_CHOICE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+        for file in "${FILES[@]}"; do
+            if [[ ! -f "$CUSTOM_BACKGROUNDS_DIR/$file" ]]; then
+                echo -e "  ${YELLOW}⚠ skipping $file (not found)${RESET}"
+                ((missing_files++))
+                continue
+            fi
+            
+            if [[ -f "$REMARKABLE_BG_DIR/$file" && ! -f "$REMARKABLE_BG_DIR/$file.bak" ]]; then
+                mv "$REMARKABLE_BG_DIR/$file" "$REMARKABLE_BG_DIR/$file.bak"
+                echo -e "  ${GREEN}✓ backed up $file${RESET}"
+            elif [[ -f "$REMARKABLE_BG_DIR/$file.bak" ]]; then
+                echo -e "  ${YELLOW}⚠ backup for $file already exists${RESET}"
+            fi
+            
+            cp "$CUSTOM_BACKGROUNDS_DIR/$file" "$REMARKABLE_BG_DIR/$file"
+            echo -e "  ${GREEN}✓ installed $file${RESET}"
+            ((installed_files++))
+        done
+        
+        echo
+        if [[ $missing_files -gt 0 ]]; then
+            echo -e "${YELLOW}note: $missing_files file(s) were skipped${RESET}"
+        fi
+        
+        if [[ $installed_files -gt 0 ]]; then
+            echo -e "${GREEN}✓ installed $installed_files wallpaper(s)${RESET}"
+        else
+            echo -e "${YELLOW}no wallpapers were installed${RESET}"
+        fi
+    fi
+}
+
+install_carousels() {
+    local missing_files=0
+    local installed_files=0
+
+    echo
+    echo -e "${BOLD}would you like to install carousel images?${RESET}"
+    read -rp "please choose (y/N): " CAROUSEL_CHOICE
+    
+    if [[ "$(echo "$CAROUSEL_CHOICE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+        for src_path in "$CUSTOM_CAROUSELS_DIR"/*.*; do
+            local filename
+            filename=$(basename "$src_path")
+
+            if [[ ! -f "$src_path" ]]; then
+                ((missing_files++))
+                continue
+            fi
+
+            if cp "$src_path" "$REMARKABLE_CAROUSELS_DIR/$filename"; then
+                echo -e "  ${GREEN}✓ installed $filename${RESET}"
+                ((installed_files++))
+            else
+                echo -e "  ${RED}✗ failed to copy $filename${RESET}"
+                ((missing_files++))
+            fi
+        done
+
+        echo
+        if [[ $missing_files -gt 0 ]]; then
+            echo -e "${YELLOW}note: $missing_files file(s) were skipped or failed${RESET}"
+        fi
+
+        if [[ $installed_files -gt 0 ]]; then
+            echo -e "${GREEN}✓ installed $installed_files carousel image(s)${RESET}"
+        else
+            echo -e "${YELLOW}no carousel images were installed${RESET}"
+        fi
     fi
 }
 
@@ -108,6 +158,7 @@ update_wallpapers() {
     echo
     
     install_wallpapers
+    install_carousels
 }
 
 restore_original_wallpapers() {
@@ -118,16 +169,16 @@ restore_original_wallpapers() {
     local restored_files=0
     
     for file in "${FILES[@]}"; do
-        if [[ ! -f "$REMARKABLE_DIR/$file.bak" ]]; then
+        if [[ ! -f "$REMARKABLE_BG_DIR/$file.bak" ]]; then
             echo -e "  ${YELLOW}⚠ no backup found for $file${RESET}"
             continue
         fi
         
-        if [[ -e "$REMARKABLE_DIR/$file" ]]; then
-            rm "$REMARKABLE_DIR/$file"
+        if [[ -e "$REMARKABLE_BG_DIR/$file" ]]; then
+            rm "$REMARKABLE_BG_DIR/$file"
         fi
         
-        mv "$REMARKABLE_DIR/$file.bak" "$REMARKABLE_DIR/$file"
+        mv "$REMARKABLE_BG_DIR/$file.bak" "$REMARKABLE_BG_DIR/$file"
         echo -e "  ${GREEN}✓ restored $file${RESET}"
         ((restored_files++))
     done
@@ -163,6 +214,7 @@ main() {
             
             if [[ "$CHOICE" == "1" ]]; then
                 install_wallpapers
+                install_carousels
             else
                 update_wallpapers
             fi
@@ -176,12 +228,14 @@ main() {
             prompt_reboot
             ;;
         4)
-            echo -e "${BLUE}okay, goodbye!${RESET}"
+            echo -e "${BLUE}kay, bye!${RESET}"
+            echo
             exit 0
             ;;
         *)
             echo -e "${RED}✗ invalid option!${RESET}"
             echo -e "${RED}plz run the script again and select 1-4${RESET}"
+            echo
             exit 1
             ;;
     esac
