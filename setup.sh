@@ -25,6 +25,10 @@ BACKGROUND_FILES=(
     "suspended.png"
 )
 
+get_random_uid() {
+    head -c 2 /dev/urandom | od -An -tx1 | tr -d ' \n'
+}
+
 show_header() {
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo -e "${BOLD}${BLUE}    reMarkable wallpaper manager (computer side)${RESET}"
@@ -68,6 +72,7 @@ guided_installation() {
     echo
     
     mkdir -p "device/bg"
+    mkdir -p "device/carousel"
     
     echo -e "${YELLOW}tips:${RESET}"
     echo -e "  • you can drag and drop ur files into the terminal window"
@@ -76,35 +81,99 @@ guided_installation() {
     
     local added_count=0
 
-    for bg_file in "${BACKGROUND_FILES[@]}"; do
-        echo -e "${BOLD}${bg_file}${RESET}"
-        read -rp "  image path (or 'skip'): " IMAGE_PATH
-        
-        [[ "${IMAGE_PATH,,}" == "skip" ]] && { echo -e "${YELLOW}  skipped${RESET}\n"; continue; }
-        
-        IMAGE_PATH="${IMAGE_PATH//[\'\"]}"
-        
-        if [[ ! -f "$IMAGE_PATH" ]]; then
-            echo -e "${RED}  ✗ file not found, skipping${RESET}\n"
-            continue
+    echo -e "${BOLD}would you like to add wallpapers / sleep screens?${RESET}"
+    read -rp "please choose (y/N): " WALLPAPER_CHOICE
+    
+    if [[ "$(echo "$WALLPAPER_CHOICE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+        echo
+
+        for bg_file in "${BACKGROUND_FILES[@]}"; do
+            echo -e "${BOLD}${bg_file}${RESET}"
+            read -rp "  image path (or 'skip'): " IMAGE_PATH
+            
+            if [[ "$(echo "$IMAGE_PATH" | tr '[:upper:]' '[:lower:]')" == "skip" ]]; then
+                echo -e "${YELLOW}  skipped${RESET}\n"
+                continue
+            fi
+            
+            IMAGE_PATH="${IMAGE_PATH//[\'\"]}"
+            
+            if [[ ! -f "$IMAGE_PATH" ]]; then
+                echo -e "${RED}  ✗ file not found, skipping${RESET}\n"
+                continue
+            fi
+            
+            if [[ ! "$IMAGE_PATH" =~ \.(png)$ ]]; then
+                echo -e "${RED}  ✗ not a .PNG image file, skipping${RESET}\n"
+                continue
+            fi
+            
+            local dest_file="device/bg/$bg_file"
+
+            if cp "$IMAGE_PATH" "$dest_file"; then
+                echo -e "${GREEN}  ✓ added $bg_file${RESET}\n"
+                ((added_count++))
+            else
+                echo -e "${RED}  ✗ failed to copy file, skipping${RESET}\n"
+            fi
+        done
+    else
+        echo -e "${YELLOW}  wallpaper / sleep screen setup skipped${RESET}\n"
+    fi
+
+    echo -e "${BOLD}would you like to add carousel images?${RESET}"
+    read -rp "please choose (y/N): " CAROUSEL_CHOICE
+    
+    if [[ "$(echo "$CAROUSEL_CHOICE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+        echo
+        read -rp "how many images would you like to add? " CAROUSEL_NUMBER
+        echo
+
+        if ! [[ "$CAROUSEL_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo -e "${RED}  ✗ invalid number format. skipping carousel.${RESET}\n"
+        else
+            for (( carousel_file=1; carousel_file<=CAROUSEL_NUMBER; carousel_file++ )); do
+                echo -e "${BOLD}carousel image #${carousel_file}${RESET}"
+                read -rp "  image path (or 'skip'): " IMAGE_PATH
+
+                if [[ "$(echo "$IMAGE_PATH" | tr '[:upper:]' '[:lower:]')" == "skip" ]]; then
+                    echo -e "${YELLOW}  skipped${RESET}\n"
+                    continue
+                fi
+
+                IMAGE_PATH="${IMAGE_PATH//[\'\"]}"
+
+                if [[ ! -f "$IMAGE_PATH" ]]; then
+                    echo -e "${RED}  ✗ file not found, skipping${RESET}\n"
+                    continue
+                fi
+
+                if [[ ! "$IMAGE_PATH" =~ \.(png)$ ]]; then
+                    echo -e "${RED}  ✗ not a .PNG image file, skipping${RESET}\n"
+                    continue
+                fi
+
+                local dest_file="device/carousel/carousel_img_$(get_random_uid).png"
+
+                if cp "$IMAGE_PATH" "$dest_file"; then
+                    local filename=$(basename "$dest_file")
+                    echo -e "${GREEN}  ✓ added ${filename}${RESET}\n"
+                    ((added_count++))
+                else
+                    echo -e "${RED}  ✗ failed to copy file, skipping${RESET}\n"
+                fi
+            done
         fi
-        
-        if [[ ! "$IMAGE_PATH" =~ \.(png)$ ]]; then
-            echo -e "${RED}  ✗ not a .PNG image file, skipping${RESET}\n"
-            continue
-        fi
-        
-        local dest_file="device/bg/$bg_file"
-        echo -e "${GREEN}  ✓ added $bg_file${RESET}\n"
-        ((added_count++))
-    done
+    else
+        echo -e "${YELLOW}  carousel setup skipped${RESET}\n"
+    fi
     
     if [[ $added_count -eq 0 ]]; then
-        echo -e "${YELLOW}no images added. please prepare images manually.${RESET}"
+        echo -e "${RED}no images added! please prepare images manually or re-run the script.${RESET}"
         exit 0
     fi
     
-    echo -e "${GREEN}✓ prep'd $added_count background(s)${RESET}"
+    echo -e "${GREEN}✓ prep'd $added_count background(s) and/or carousel(s)${RESET}"
     echo
 }
 
@@ -137,7 +206,6 @@ connect_to_remarkable() {
     echo
     echo -e "${GREEN}✓ files copied successfully!${RESET}"
     echo
-    echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo -e "${BOLD}${BLUE}next steps${RESET}"
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo
@@ -164,19 +232,22 @@ main() {
             guided_installation
             ;;
         2)
+            echo
             echo -e "${BLUE}using manual mode with existing files${RESET}"
             echo
             ;;
         3)
-            echo -e "${BLUE}love u, goodbye!!${RESET}"
+            echo
+            echo -e "${BLUE}love u, bye!!${RESET}"
             exit 0
             ;;
         *)
             echo -e "${YELLOW}invalid option, defaulting to guided mode${RESET}"
-            echo
+            guided_installation
             ;;
     esac
     
+    echo -e "${BOLD}⌄ this is most likely 10.11.99.1 ⌄${RESET}"
     read -rp "enter your reMarkable's IP address: " REMARKABLE_IP
     
     if copy_to_remarkable "$REMARKABLE_IP"; then

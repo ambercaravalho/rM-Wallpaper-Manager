@@ -3,7 +3,7 @@ place your custom carousel files here. a couple of things to note:
 - they MUST be .PNG files
 - i'd recommend a size of 776 x 776 pixels for the all reMarkable devices
 - name the files exactly like the following:
-    "sleep_Illustration_03.png"
-    "sleep_Illustration_04.png"
-    "sleep_Illustration_05.png"
+    "carousel_img_01.png"
+    "carousel_img_02.png"
+    "carousel_img_03.png"
     etc.

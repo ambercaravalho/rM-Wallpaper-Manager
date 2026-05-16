@@ -97,7 +97,7 @@ once connected via SSH, run the following commands:
 - **changes not appearing**: reboot the tablet after installing or updating wallpapers.
 - **after reMarkable update**: use option 2 in the wallpaper manager to reinstall your custom wallpapers.
 
-## reverting to Default Wallpapers
+## reverting to default wallpapers
 
 the installed wallpapers can be reverted to default in two ways:
 
