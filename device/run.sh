@@ -25,7 +25,7 @@ FILES=(
 
 show_menu() {
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
-    echo -e "${BOLD}${BLUE}      reMarkable wallpaper manager (device side)${RESET}"
+    echo -e "${BOLD}${BLUE}     reMarkable wallpaper manager (device side)${RESET}"
     echo -e "${BOLD}${BLUE}$SEPARATOR${RESET}"
     echo
     echo -e "${BOLD}1.${RESET} install custom wallpapers"
@@ -112,9 +112,77 @@ install_wallpapers() {
     fi
 }
 
+backup_and_clear_carousel() {
+    echo
+    echo -e "${BOLD}would you like to install backup and clear existing carousel images?${RESET}"
+    read -rp "please choose (y/N): " BACKUP_CHOICE
+
+    if [[ "$(echo "$BACKUP_CHOICE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+        echo
+        echo -e "${BOLD}${BLUE}backing up and clearing carousel images${RESET}"
+        echo
+
+        local backup_count=0
+        local skip_count=0
+        local timestamp
+        timestamp=$(date +"%Y%m%d_%H%M%S")
+        local backup_dir="$REMARKABLE_CAROUSELS_DIR.bak_$timestamp"
+
+        if [[ ! -d "$REMARKABLE_CAROUSELS_DIR" ]]; then
+            echo -e "${YELLOW}⚠ carousel directory does not exist, nothing to backup${RESET}"
+            return 0
+        fi
+
+        local files
+        files=$(ls -1A "$REMARKABLE_CAROUSELS_DIR" 2>/dev/null)
+
+        if [[ -z "$files" ]]; then
+            echo -e "${YELLOW}⚠ carousel directory is empty, nothing to backup${RESET}"
+            return 0
+        fi
+
+        if ! mkdir -p "$backup_dir"; then
+            echo -e "${RED}✗ failed to create backup directory${RESET}"
+            return 1
+        fi
+
+        for src_file in $files; do
+            local filename
+            filename=$(basename "$src_file")
+            local dest_file="$backup_dir/$filename"
+
+            if cp "$src_file" "$dest_file"; then
+                echo -e "  ${GREEN}✓ backed up $filename${RESET}"
+                ((++backup_count)) || true
+
+                if rm "$src_file"; then
+                    echo -e "  ${GREEN}  ✓ removed $filename${RESET}"
+                else
+                    echo -e "  ${YELLOW}  ⚠ backed up, but failed to remove $filename!${RESET}"
+                fi
+            else
+                echo -e "  ${RED}✗ failed to backup $filename!${RESET}"
+                ((++skip_count)) || true
+            fi
+        done
+
+        echo
+        if [[ $backup_count -gt 0 ]]; then
+            echo -e "${GREEN}✓ backed up and removed $backup_count carousel image(s)${RESET}"
+            echo -e "${GREEN}  backup location: $backup_dir${RESET}"
+        fi
+
+        if [[ $skip_count -gt 0 ]]; then
+            echo -e "${YELLOW}note: $skip_count file(s) failed to backup${RESET}"
+        fi
+    fi
+}
+
 install_carousels() {
     local missing_files=0
     local installed_files=0
+
+    backup_and_clear_carousel
 
     echo
     echo -e "${BOLD}would you like to install carousel images?${RESET}"
@@ -126,16 +194,16 @@ install_carousels() {
             filename=$(basename "$src_path")
 
             if [[ ! -f "$src_path" ]]; then
-                ((missing_files++))
+                ((++missing_files)) || true
                 continue
             fi
 
             if cp "$src_path" "$REMARKABLE_CAROUSELS_DIR/$filename"; then
                 echo -e "  ${GREEN}✓ installed $filename${RESET}"
-                ((installed_files++))
+                ((++installed_files)) || true
             else
-                echo -e "  ${RED}✗ failed to copy $filename${RESET}"
-                ((missing_files++))
+                echo -e "  ${RED}✗ failed to copy $filename!${RESET}"
+                ((++missing_files)) || true
             fi
         done
 
@@ -191,16 +259,60 @@ restore_original_wallpapers() {
     fi
 }
 
+install_rmfakecloud_proxy() {
+    echo
+    echo -e "${BOLD}would you like to install rmfakecloud-proxy?${RESET}"
+    read -rp "please choose (y/N): " RMFAKECLOUD_CHOICE
+    
+    if [[ "$(echo "$RMFAKECLOUD_CHOICE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+        echo -e "${BOLD}${BLUE}setting up rmfakecloud-proxy...${RESET}"
+        echo
+
+        local installer_file
+        local installer_url_base="https://github.com/ddvk/rmfakecloud-proxy/releases/latest/download"
+
+        if grep -qi "Paper" /sys/devices/soc0/machine 2>/dev/null; then
+            installer_file="installer-rmpro.sh"
+            echo -e "  ${YELLOW}detected: reMarkable Paper Pro/Move${RESET}"
+        else
+            installer_file="installer-rm12.sh"
+            echo -e "  ${YELLOW}detected: reMarkable 1/2${RESET}"
+        fi
+
+        local installer_url="$installer_url_base/$installer_file"
+        local tmp_installer="/tmp/$installer_file"
+
+        echo -e "  ${BLUE}downloading latest installer...${RESET}"
+
+        if ! wget -q -O "$tmp_installer" "$installer_url"; then
+            echo -e "${RED}  ✗ failed to download installer from $installer_url!${RESET}"
+            echo -e "${YELLOW}  check your internet connection or GitHub status${RESET}"
+            return 1
+        fi
+
+        chmod +x "$tmp_installer"
+
+        echo -e "${GREEN}  ✓ downloaded successfully${RESET}"
+        echo
+        echo -e "${BOLD}${BLUE}starting the rmfakecloud-proxy installer...${RESET}"
+        echo -e "${YELLOW}this action will replace the current script process.${RESET}"
+        echo
+
+        exec "$tmp_installer" install
+    fi
+}
+
 prompt_reboot() {
     echo
-    echo -e "${YELLOW}reboot required for changes to take effect${RESET}"
+    echo -e "${YELLOW}note: a reboot is only required for wallpaper changes to take effect.${RESET}"
+    echo -e "${YELLOW}carousel images are updated immediately and do not require a reboot.${RESET}"
     read -rp "reboot now? (y/N): " REBOOT_CHOICE
-    
-    if [[ "${REBOOT_CHOICE,,}" =~ ^(y|yes)$ ]]; then
+
+    if [[ "$(echo "$REBOOT_CHOICE" | tr '[:upper:]' '[:lower:]')" =~ ^(y|yes)$ ]]; then
         echo -e "${BLUE}rebooting...${RESET}"
         reboot
     else
-        echo -e "${BLUE}remember to reboot later for changes to take effect!${RESET}"
+        echo -e "${BLUE}remember to reboot later if you installed wallpapers!${RESET}"
     fi
 }
 
@@ -219,12 +331,14 @@ main() {
                 update_wallpapers
             fi
             
+            install_rmfakecloud_proxy
             prompt_reboot
             ;;
         3)
             show_warning
             check_directories
             restore_original_wallpapers
+            backup_and_clear_carousel
             prompt_reboot
             ;;
         4)

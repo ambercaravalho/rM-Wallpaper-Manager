@@ -1,6 +1,8 @@
 # rM-wallpaper-manager
 
-a utility to assist to manage the wallpapers (sleep screens) on reMarkable devices.
+a utility to assist to manage the wallpapers (sleep screens) and carousels on reMarkable devices.
+
+> *tested up to reMarkable OS 3.27.1.0*
 
 ## before u begin
 
